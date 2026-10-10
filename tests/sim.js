@@ -1,5 +1,5 @@
 // CPUだけで長時間シミュレーションし、例外やルール破綻が無いか確認する
-require('../src/config.js'); require('../src/game.js'); require('../src/cpu.js');
+require('../src/config.js'); require('../src/mapdata.js'); require('../src/game.js'); require('../src/cpu.js');
 const G = globalThis.PG;
 let seed = 1; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 let kills = 0, maxPct = 0;

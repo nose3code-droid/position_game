@@ -1,22 +1,20 @@
 // [担当: ゲームデザイン] 調整用パラメータ・ルールはここに集約
 (function (G) {
   G.CONFIG = {
-    COLS: 60,
-    ROWS: 40,
+    COLS: 69,       // map.png (3:2) に合わせた 69x46 の正方形セル
+    ROWS: 46,
     CELL: 16,
     STEP_MS: 110,        // 1マス進む間隔(小さいほど速い)
     MATCH_SEC: 120,      // 1試合の長さ
     CPU_COUNT: 3,
     RESPAWN_MS: 3000,    // CPUの復活待ち
+    SHIELD_STEPS: 20,    // 出現直後に倒されない歩数
     SPAWN_SIZE: 3,       // 初期陣地の一辺
     // 画像は assets/ に置くと自動で使われる。無ければ仮描画。
-    IMAGES: {
-      map: 'assets/map.png',
-      warrior0: 'assets/warrior_player.png',
-      warrior1: 'assets/warrior_cpu1.png',
-      warrior2: 'assets/warrior_cpu2.png',
-      warrior3: 'assets/warrior_cpu3.png',
-    },
+    MAP_IMAGE: 'assets/map.png',
+    // 戦士スプライト: assets/warrior_<名前>_<up|right|down|left>.png (tools/build_assets.py で生成)
+    SPRITES: ['player', 'cpu1', 'cpu2', 'cpu3'],
+    SPRITE_H: 3.4,       // 戦士の身長(セル数)
     WARRIORS: [
       { name: 'あなた', color: '#3b82f6' },
       { name: '赤の戦士', color: '#ef4444' },

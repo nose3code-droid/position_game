@@ -10,13 +10,16 @@
       this.rng = rng;
       this.owner = new Int8Array(N).fill(-1); // 陣地の持ち主
       this.trail = new Int8Array(N).fill(-1); // 通った道(軌跡)の持ち主
+      this.wall = new Uint8Array(N);          // 壁(mapdata.js)。進入すると倒れる
+      (G.MAP_WALLS || []).forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') this.wall[idx(x, y)] = 1; }));
+      this.free = N - this.wall.reduce((a, b) => a + b, 0);
       this.timeLeft = C.MATCH_SEC * 1000;
       this.over = false;
       this.events = []; // 'kill' 等をUIが拾う
       this.warriors = C.WARRIORS.slice(0, 1 + C.CPU_COUNT).map((w, id) => ({
         id, name: w.name, color: w.color, isCpu: id > 0,
         alive: false, x: 0, y: 0, dir: 1, nextDir: 1, trailLen: 0,
-        respawnIn: 0, kills: 0, ai: null,
+        respawnIn: 0, kills: 0, ai: null, shield: 0,
       }));
       this.warriors.forEach((w) => this.spawn(w));
     }
@@ -29,14 +32,31 @@
         let ok = true;
         for (let j = -1; j <= s && ok; j++)
           for (let i = -1; i <= s; i++)
-            if (!inside(x + i, y + j) || this.owner[idx(x + i, y + j)] !== -1 || this.trail[idx(x + i, y + j)] !== -1) { ok = false; break; }
+            if (!inside(x + i, y + j) || this.wall[idx(x + i, y + j)] || this.owner[idx(x + i, y + j)] !== -1 || this.trail[idx(x + i, y + j)] !== -1) { ok = false; break; }
         if (!ok) continue;
         for (let j = 0; j < s; j++) for (let i = 0; i < s; i++) this.owner[idx(x + i, y + j)] = w.id;
-        w.x = x + 1; w.y = y + 1; w.dir = w.nextDir = Math.floor(this.rng() * 4);
-        w.alive = true; w.trailLen = 0; w.ai = null;
+        w.x = x + 1; w.y = y + 1;
+        w.dir = w.nextDir = this.openDir(w.x, w.y);
+        w.alive = true; w.trailLen = 0; w.ai = null; w.shield = C.SHIELD_STEPS;
         return;
       }
       w.respawnIn = 1000; // 空きが無ければ後で再試行
+    }
+
+    // 壁までの距離が最も長い向き(出現直後に壁へ突っ込まないように)
+    openDir(x, y) {
+      let best = 0, bd = -1;
+      for (let d = 0; d < 4; d++) {
+        let n = 0, cx = x, cy = y;
+        while (n < 30) {
+          cx += DIRS[d].x; cy += DIRS[d].y;
+          if (!inside(cx, cy) || this.wall[idx(cx, cy)]) break;
+          n++;
+        }
+        n += this.rng() * 3; // 同程度なら少しばらつかせる
+        if (n > bd) { bd = n; best = d; }
+      }
+      return best;
     }
 
     setDir(id, d) {
@@ -46,8 +66,9 @@
       w.nextDir = d;
     }
 
-    kill(w, killer) {
+    kill(w, killer, force = false) {
       if (!w.alive) return;
+      if (w.shield > 0 && !force) return; // 保護中は倒されない
       w.alive = false;
       for (let i = 0; i < N; i++) {
         if (this.owner[i] === w.id) this.owner[i] = -1;
@@ -70,15 +91,16 @@
         moves.push({ w, nx, ny });
       }
       const dead = [];
+      for (const m of moves) if (m.w.shield > 0) m.w.shield--;
       for (const m of moves) {
         const { w, nx, ny } = m;
-        if (!inside(nx, ny)) { dead.push([w, null]); continue; }
+        if (!inside(nx, ny) || this.wall[idx(nx, ny)]) { dead.push([w, null, true]); continue; }
         const t = this.trail[idx(nx, ny)];
         if (t !== -1) dead.push([this.warriors[t], w]); // 軌跡を断たれた側が倒れる
       }
-      for (const a of moves) for (const b of moves) // 正面衝突は相打ち
-        if (a.w.id < b.w.id && a.nx === b.nx && a.ny === b.ny) { dead.push([a.w, b.w]); dead.push([b.w, a.w]); }
-      for (const [v, k] of dead) this.kill(v, k);
+      for (const a of moves) for (const b of moves) // 正面衝突は相打ち(自陣内で軌跡の無い戦士は対象外)
+        if (a.w.id < b.w.id && a.nx === b.nx && a.ny === b.ny && a.w.trailLen > 0 && b.w.trailLen > 0) { dead.push([a.w, b.w]); dead.push([b.w, a.w]); }
+      for (const [v, k, force] of dead) this.kill(v, k, force);
 
       for (const { w, nx, ny } of moves) {
         if (!w.alive) continue;
@@ -92,30 +114,33 @@
       }
     }
 
-    // 軌跡を陣地化し、囲んだ内側を塗る
+    // 軌跡を陣地化し、囲んだ内側を塗る。
+    // 自陣と壁で区切られた空き地のうち、最大の領域(外側)以外を囲い込んだ領域として塗る
     capture(w) {
       for (let i = 0; i < N; i++) if (this.trail[i] === w.id) { this.trail[i] = -1; this.owner[i] = w.id; }
       w.trailLen = 0;
-      const outside = new Uint8Array(N);
-      const stack = [];
-      const push = (x, y) => {
-        if (!inside(x, y)) return;
-        const i = idx(x, y);
-        if (outside[i] || this.owner[i] === w.id) return;
-        outside[i] = 1; stack.push(i);
-      };
-      for (let x = 0; x < C.COLS; x++) { push(x, 0); push(x, C.ROWS - 1); }
-      for (let y = 0; y < C.ROWS; y++) { push(0, y); push(C.COLS - 1, y); }
-      while (stack.length) {
-        const i = stack.pop(), x = i % C.COLS, y = (i / C.COLS) | 0;
-        push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
-      }
-      for (let i = 0; i < N; i++) {
-        if (outside[i] || this.owner[i] === w.id) continue;
-        const t = this.trail[i];
-        if (t !== -1 && t !== w.id) { // 囲い込まれた他者の軌跡 → その戦士を倒す
-          this.kill(this.warriors[t], w);
+      const comp = new Int32Array(N).fill(-1), sizes = [];
+      for (let s0 = 0; s0 < N; s0++) {
+        if (comp[s0] !== -1 || this.wall[s0] || this.owner[s0] === w.id) continue;
+        const c = sizes.length, stack = [s0]; comp[s0] = c; let n = 0;
+        while (stack.length) {
+          const i = stack.pop(); n++;
+          const x = i % C.COLS, y = (i / C.COLS) | 0;
+          for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+            if (!inside(nx, ny)) continue;
+            const j = idx(nx, ny);
+            if (comp[j] !== -1 || this.wall[j] || this.owner[j] === w.id) continue;
+            comp[j] = c; stack.push(j);
+          }
         }
+        sizes.push(n);
+      }
+      if (sizes.length < 2) return;
+      const outer = sizes.indexOf(Math.max(...sizes));
+      for (let i = 0; i < N; i++) {
+        if (comp[i] === -1 || comp[i] === outer) continue;
+        const t = this.trail[i];
+        if (t !== -1 && t !== w.id) this.kill(this.warriors[t], w); // 囲い込まれた他者の軌跡 → その戦士を倒す
         this.owner[i] = w.id;
       }
     }
@@ -138,7 +163,7 @@
     scores() {
       const cnt = new Array(this.warriors.length).fill(0);
       for (let i = 0; i < N; i++) if (this.owner[i] >= 0) cnt[this.owner[i]]++;
-      return cnt.map((c) => (c / N) * 100);
+      return cnt.map((c) => (c / this.free) * 100);
     }
   }
 

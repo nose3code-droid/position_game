@@ -6,7 +6,7 @@
   function safe(game, w, d) {
     const x = w.x + DIRS[d].x, y = w.y + DIRS[d].y;
     if (!inside(x, y)) return false;
-    return game.trail[idx(x, y)] !== w.id;
+    return !game.wall[idx(x, y)] && game.trail[idx(x, y)] !== w.id;
   }
 
   function nearest(game, pred, w, maxDist) {
