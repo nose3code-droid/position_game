@@ -6,6 +6,8 @@
 | `source/map_source.png` | ChatGPT生成の元マップ(タイルの材料) |
 | `source/warrior_*.jpg` | ChatGPT生成の四面図(元データ) |
 | `warrior_<名前>_<up\|right\|down\|left>.png` | 四面図から切り出して背景透明化した戦士(自動生成) |
+| `item_chest.png` | 千両箱アイテム(四面図の正面を切り出し・背景透明化。`tools/build_items.py`) |
+| `source/item_chest.jpg` | ChatGPT生成のアイテム四面図(元データ) |
 
 名前: `player`(青灰の弓兵) / `cpu1`(赤) / `cpu2`(緑) / `cpu3`(金)
 向き: up=背面 / right=右側面 / down=正面 / left=左側面(進行方向で自動切り替え)

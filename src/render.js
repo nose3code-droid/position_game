@@ -15,7 +15,7 @@
   }
 
   G.loadImages = function () {
-    const jobs = [load('map', C.MAP_IMAGE)];
+    const jobs = [load('map', C.MAP_IMAGE), load('item', C.ITEM_IMAGE)];
     C.SPRITES.forEach((name, id) => DIR_NAMES.forEach((d, di) => jobs.push(load(`w${id}_${di}`, `assets/warrior_${name}_${d}.png`))));
     return Promise.all(jobs);
   };
@@ -55,6 +55,48 @@
   }
   G.resetCamera = () => { cam.init = false; };
 
+  // 取得演出(広がる輪と獲得マス数)
+  const effects = [];
+  G.addEffect = (x, y, color, gained) => effects.push({ x, y, color, gained, t0: performance.now() });
+  G.clearEffects = () => { effects.length = 0; };
+
+  function drawItems(ctx, game, cx, cy, S) {
+    const now = performance.now();
+    for (const t of game.items) {
+      const px = t.x * S - cx, py = t.y * S - cy;
+      if (px < -S * 3 || py < -S * 4 || px > C.VIEW_COLS * S + S * 3 || py > C.VIEW_ROWS * S + S * 3) continue;
+      const bob = Math.sin(now / 250 + t.x * 1.7 + t.y) * 2;
+      const im = images.item;
+      if (im) {
+        const h = S * C.ITEM_H, w = h * im.width / im.height;
+        ctx.save(); ctx.imageSmoothingQuality = 'high';
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; // 影
+        ctx.beginPath(); ctx.ellipse(px + S / 2, py + S * 0.85, w * 0.4, S * 0.25, 0, 0, 7); ctx.fill();
+        ctx.drawImage(im, px + S / 2 - w / 2, py + S * 0.85 - h + bob, w, h);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#f5c542'; ctx.fillRect(px + 2, py + 2 + bob, S - 4, S - 4);
+      }
+    }
+  }
+
+  function drawEffects(ctx, cx, cy, S) {
+    const now = performance.now();
+    for (let i = effects.length - 1; i >= 0; i--) {
+      const e = effects[i], k = (now - e.t0) / 900;
+      if (k >= 1) { effects.splice(i, 1); continue; }
+      const x = (e.x + 0.5) * S - cx, y = (e.y + 0.5) * S - cy;
+      ctx.save();
+      ctx.globalAlpha = 1 - k; ctx.strokeStyle = e.color; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(x, y, (C.ITEM_RADIUS + 0.5) * S * Math.min(1, k * 2.5), 0, 7); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+      ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+      const txt = `+${e.gained * C.SCORE_CELL}`;
+      ctx.strokeText(txt, x, y - S * 2 - k * 24); ctx.fillText(txt, x, y - S * 2 - k * 24);
+      ctx.restore();
+    }
+  }
+
   function drawMinimap(ctx, game) {
     const img = mctx.createImageData(C.COLS, C.ROWS);
     const rgb = game.warriors.map((w) => [1, 3, 5].map((k) => parseInt(w.color.substr(k, 2), 16)));
@@ -72,6 +114,8 @@
     ctx.globalAlpha = 1; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
     ctx.strokeRect(x0 + 0.5, y0 + 0.5, w, h);
     ctx.strokeRect(x0 + (cam.x / C.CELL) * MINI, y0 + (cam.y / C.CELL) * MINI, C.VIEW_COLS * MINI, C.VIEW_ROWS * MINI);
+    ctx.fillStyle = '#fbbf24';
+    for (const t of game.items) ctx.fillRect(x0 + t.x * MINI, y0 + t.y * MINI, 3, 3);
     for (const wr of game.warriors) if (wr.alive) {
       ctx.fillStyle = wr.color; ctx.strokeStyle = '#000';
       ctx.beginPath(); ctx.arc(x0 + (wr.x + 0.5) * MINI, y0 + (wr.y + 0.5) * MINI, wr.id === 0 ? 3 : 2, 0, 7);
@@ -101,11 +145,13 @@
       if (t >= 0) { ctx.globalAlpha = 0.9; ctx.fillStyle = game.warriors[t].color; ctx.fillRect(px + 3, py + 3, S - 6, S - 6); }
     }
     ctx.globalAlpha = 1;
+    drawItems(ctx, game, cx, cy, S);
     for (const w of game.warriors) if (w.alive) {
       ctx.globalAlpha = w.shield > 0 && (w.shield % 4 < 2) ? 0.5 : 1; // 保護中は点滅
       drawWarrior(ctx, w, w.x * S - cx, w.y * S - cy, S);
     }
     ctx.globalAlpha = 1;
+    drawEffects(ctx, cx, cy, S);
     drawMinimap(ctx, game);
   };
 })(globalThis.PG);

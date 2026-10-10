@@ -13,6 +13,8 @@
       this.wall = new Uint8Array(N);          // 壁(mapdata.js)。進入すると倒れる
       (G.MAP_WALLS || []).forEach((row, y) => [...row].forEach((c, x) => { if (c === '#') this.wall[idx(x, y)] = 1; }));
       this.free = N - this.wall.reduce((a, b) => a + b, 0);
+      this.items = [];        // 落ちているアイテム {x, y}
+      this.itemTimers = [];   // 再出現待ち(ms)
       this.timeLeft = C.MATCH_SEC * 1000;
       this.over = false;
       this.events = []; // 'kill' 等をUIが拾う
@@ -22,7 +24,42 @@
         respawnIn: 0, kills: 0, ai: null, shield: 0,
       }));
       this.warriors.forEach((w) => this.spawn(w));
+      for (let i = 0; i < C.ITEM_COUNT; i++) this.spawnItem();
     }
+
+    spawnItem() {
+      for (let tries = 0; tries < 300; tries++) {
+        const x = 1 + Math.floor(this.rng() * (C.COLS - 2)), y = 1 + Math.floor(this.rng() * (C.ROWS - 2));
+        const i = idx(x, y);
+        if (this.wall[i] || this.trail[i] !== -1 || this.items.some((t) => t.x === x && t.y === y)) continue;
+        if (this.warriors.some((w) => w.alive && Math.abs(w.x - x) + Math.abs(w.y - y) < 4)) continue;
+        this.items.push({ x, y });
+        return true;
+      }
+      return false;
+    }
+
+    // アイテム取得: 周囲(円形)の陣地を奪う。範囲内の他者の軌跡は断たれる
+    pickItem(w, k) {
+      const [item] = this.items.splice(k, 1);
+      this.itemTimers.push(C.ITEM_RESPAWN_MS);
+      const R = C.ITEM_RADIUS;
+      let gained = 0;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if (dx * dx + dy * dy > R * R + 1) continue;
+        const x = item.x + dx, y = item.y + dy;
+        if (!inside(x, y)) continue;
+        const i = idx(x, y);
+        if (this.wall[i]) continue;
+        const t = this.trail[i];
+        if (t !== -1 && t !== w.id) { this.kill(this.warriors[t], w); if (this.trail[i] === t) continue; }
+        if (this.owner[i] !== w.id) gained++;
+        this.owner[i] = w.id;
+      }
+      this.events.push({ type: 'item', who: w.id, x: item.x, y: item.y, gained });
+      if (w.trailLen > 0) this.capture(w); // 取得地点は自陣になるので、軌跡があれば閉じて囲い込む
+    }
+
 
     spawn(w) {
       const s = C.SPAWN_SIZE;
@@ -106,6 +143,9 @@
         if (!w.alive) continue;
         w.x = nx; w.y = ny;
         const i = idx(nx, ny);
+        const k = this.items.findIndex((t) => t.x === nx && t.y === ny);
+        if (k >= 0) this.pickItem(w, k);
+        if (!w.alive) continue; // アイテム取得の影響で倒れた場合
         if (this.owner[i] === w.id) {
           if (w.trailLen > 0) this.capture(w);
         } else {
@@ -155,6 +195,11 @@
           w.respawnIn -= dt;
           if (w.respawnIn <= 0) this.spawn(w);
         }
+      }
+      for (let k = this.itemTimers.length - 1; k >= 0; k--) {
+        this.itemTimers[k] -= dt;
+        if (this.itemTimers[k] <= 0 && this.spawnItem()) this.itemTimers.splice(k, 1);
+        else if (this.itemTimers[k] <= 0) this.itemTimers[k] = 1000;
       }
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.over = true; }
       if (!this.warriors[0].alive) this.over = true; // プレイヤーが倒れたら終了

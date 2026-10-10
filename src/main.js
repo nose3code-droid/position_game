@@ -64,6 +64,7 @@
       G.cpuThink(game);
       game.step();
       game.tick(C.STEP_MS);
+      for (const e of game.events.splice(0)) if (e.type === 'item') G.addEffect(e.x, e.y, game.warriors[e.who].color, e.gained);
     }
     G.render(ctx, game); updateHud();
     if (game.over) return finish();
@@ -71,8 +72,8 @@
   }
 
   function start() {
-    game = new G.Game();
-    G.resetCamera();
+    game = G.game = new G.Game(); // G.game はデバッグ・テスト用
+    G.resetCamera(); G.clearEffects();
     overlay.style.display = 'none';
     running = true; acc = 0; last = performance.now();
     requestAnimationFrame(loop);

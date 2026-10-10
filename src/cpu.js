@@ -43,8 +43,19 @@
     const home = w.trailLen > ai.maxTrail
       ? nearest(game, (i) => game.owner[i] === w.id, w, 40) : null;
 
+    // 近くのアイテム(周囲の陣地が取れる)を狙う。軌跡が長いときは帰還優先
+    let item = null;
+    if (!home && w.trailLen <= ai.maxTrail) {
+      let bd = 16;
+      for (const t of game.items) {
+        const d = Math.abs(t.x - w.x) + Math.abs(t.y - w.y);
+        if (d < bd) { bd = d; item = t; }
+      }
+    }
+
     let cands = [];
-    if (home) cands = towards(w, home.x, home.y);
+    if (item && rng() < 0.92) cands = towards(w, item.x, item.y);
+    else if (home) cands = towards(w, home.x, home.y);
     else if (prey && rng() < 0.7) cands = towards(w, prey.x, prey.y);
     else {
       // 3) 通常: 矩形を描くように遠征して戻る
