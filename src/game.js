@@ -160,6 +160,13 @@
       if (!this.warriors[0].alive) this.over = true; // プレイヤーが倒れたら終了
     }
 
+    // 点数 = 陣地マス数 x SCORE_CELL + 撃破数 x SCORE_KILL
+    points() {
+      const cnt = new Array(this.warriors.length).fill(0);
+      for (let i = 0; i < N; i++) if (this.owner[i] >= 0) cnt[this.owner[i]]++;
+      return cnt.map((c, id) => c * C.SCORE_CELL + this.warriors[id].kills * C.SCORE_KILL);
+    }
+
     scores() {
       const cnt = new Array(this.warriors.length).fill(0);
       for (let i = 0; i < N; i++) if (this.owner[i] >= 0) cnt[this.owner[i]]++;

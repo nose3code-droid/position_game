@@ -2,7 +2,8 @@
 
 | ファイル | 内容 |
 |---|---|
-| `map.png` | マップ(外周+障害物の壁つき、1536x1024)。壁の位置は `src/mapdata.js` に反映済み |
+| `map.png` | マップ(外周+障害物の壁つき、2560x1664)。`tools/build_map.py` が元画像のタイルから自動生成。壁の位置は `src/mapdata.js` |
+| `source/map_source.png` | ChatGPT生成の元マップ(タイルの材料) |
 | `source/warrior_*.jpg` | ChatGPT生成の四面図(元データ) |
 | `warrior_<名前>_<up\|right\|down\|left>.png` | 四面図から切り出して背景透明化した戦士(自動生成) |
 
@@ -12,5 +13,5 @@
 ## 更新手順
 - 戦士の絵を差し替えたら `assets/source/` のjpgを上書きして `python3 tools/build_assets.py`
   (要 numpy, scipy, Pillow。四面図が左側面・正面・右側面・背面の順に並んでいる前提)
-- マップを差し替えたら `python3 tools/build_map.py` で壁データを再生成
-  (緑の床以外を壁として読み取る。グリッドは `src/config.js` の COLS/ROWS=69x46)
+- マップの大きさ・障害物を変えるなら `tools/build_map.py` の TILES_W/TILES_H・障害物数を変えて再実行
+  (`src/config.js` の COLS/ROWS = タイル数×3 に合わせる。現在 120x78)

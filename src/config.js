@@ -1,13 +1,17 @@
 // [担当: ゲームデザイン] 調整用パラメータ・ルールはここに集約
 (function (G) {
   G.CONFIG = {
-    COLS: 69,       // map.png (3:2) に合わせた 69x46 の正方形セル
-    ROWS: 46,
+    COLS: 120,      // マップ全体のセル数 (tools/build_map.py のタイル数*3 と一致させる)
+    ROWS: 78,
+    VIEW_COLS: 69,  // 画面に映る範囲(カメラはプレイヤーを追う)
+    VIEW_ROWS: 46,
     CELL: 16,
     STEP_MS: 110,        // 1マス進む間隔(小さいほど速い)
-    MATCH_SEC: 120,      // 1試合の長さ
+    MATCH_SEC: 180,      // 1試合の長さ
     CPU_COUNT: 3,
     RESPAWN_MS: 3000,    // CPUの復活待ち
+    SCORE_CELL: 10,      // 陣地1マスあたりの点数
+    SCORE_KILL: 500,     // 撃破1人あたりの点数
     SHIELD_STEPS: 20,    // 出現直後に倒されない歩数
     SPAWN_SIZE: 3,       // 初期陣地の一辺
     // 画像は assets/ に置くと自動で使われる。無ければ仮描画。
