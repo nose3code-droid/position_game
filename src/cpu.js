@@ -32,21 +32,27 @@
 
   function think(game, w) {
     const rng = game.rng;
-    const ai = w.ai || (w.ai = { leg: 0, legLen: 0, loopLeg: 0, maxTrail: 6 + Math.floor(rng() * 10) });
+    const D = C.DIFFICULTY[game.difficulty] || C.DIFFICULTY.normal;
+    const newMax = () => D.trail[0] + Math.floor(rng() * (D.trail[1] - D.trail[0] + 1));
+    const ai = w.ai || (w.ai = { legLen: 0, maxTrail: newMax() });
     const here = game.owner[idx(w.x, w.y)] === w.id;
     let want = w.dir;
 
-    // 1) 他者の軌跡が近ければ狙う(攻撃)
-    const prey = w.trailLen < 8 &&
-      nearest(game, (i) => game.trail[i] !== -1 && game.trail[i] !== w.id, w, 8);
-    // 2) 軌跡が長すぎたら自陣へ帰る
-    const home = w.trailLen > ai.maxTrail
-      ? nearest(game, (i) => game.owner[i] === w.id, w, 40) : null;
+    // かんたん: ときどき考えずに直進する(壁・自分の軌跡だけは避ける)
+    if (rng() > D.think) { avoid(game, w, [w.dir]); return; }
 
-    // 近くのアイテム(周囲の陣地が取れる)を狙う。軌跡が長いときは帰還優先
+    // 1) 危険: 敵が自分の軌跡に近い → 自陣へ逃げ帰る(ダッシュも使う)
+    const danger = D.flee && w.trailLen > 0 && game.threat(w) <= 3 + w.trailLen / 4;
+    // 2) 軌跡が長すぎたら自陣へ帰る
+    const home = (danger || w.trailLen > ai.maxTrail)
+      ? nearest(game, (i) => game.owner[i] === w.id, w, 40) : null;
+    // 3) 他者の軌跡が近ければ狙う(攻撃)
+    const prey = !home && w.trailLen < 8 &&
+      nearest(game, (i) => game.trail[i] !== -1 && game.trail[i] !== w.id, w, 8);
+    // 4) 近くのアイテム(周囲の陣地が取れる)を狙う
     let item = null;
-    if (!home && w.trailLen <= ai.maxTrail) {
-      let bd = 16;
+    if (!home) {
+      let bd = D.item;
       for (const t of game.items) {
         const d = Math.abs(t.x - w.x) + Math.abs(t.y - w.y);
         if (d < bd) { bd = d; item = t; }
@@ -54,14 +60,17 @@
     }
 
     let cands = [];
-    if (item && rng() < 0.92) cands = towards(w, item.x, item.y);
-    else if (home) cands = towards(w, home.x, home.y);
-    else if (prey && rng() < 0.7) cands = towards(w, prey.x, prey.y);
+    if (home) {
+      cands = towards(w, home.x, home.y);
+      if (D.dash && (danger || w.trailLen > ai.maxTrail + 8)) game.dash(w.id);
+    } else if (prey && rng() < D.prey) {
+      cands = towards(w, prey.x, prey.y);
+      if (D.dash && prey.d <= 6) game.dash(w.id);
+    } else if (item && rng() < 0.92) cands = towards(w, item.x, item.y);
     else {
-      // 3) 通常: 矩形を描くように遠征して戻る
-      if (here) { ai.legLen = 0; ai.loopLeg = 0; ai.maxTrail = 6 + Math.floor(rng() * 14); }
+      // 5) 通常: 矩形を描くように遠征して戻る
+      if (here) { ai.legLen = 0; ai.maxTrail = newMax(); }
       if (ai.legLen <= 0) {
-        ai.loopLeg++;
         ai.legLen = 2 + Math.floor(rng() * 6);
         const turn = rng() < 0.5 ? 1 : 3;
         want = (w.dir + (here ? Math.floor(rng() * 4) : turn)) % 4;
@@ -69,14 +78,20 @@
       ai.legLen--;
       cands = [want, (want + 1) % 4, (want + 3) % 4];
     }
-    cands.push(w.dir, (w.dir + 1) % 4, (w.dir + 3) % 4);
+    avoid(game, w, cands);
+  }
+
+  // 候補の向きを順に試し、安全なものを選ぶ
+  function avoid(game, w, cands) {
+    cands = cands.concat([w.dir, (w.dir + 1) % 4, (w.dir + 3) % 4]);
     for (const d of cands) {
       if ((d + 2) % 4 === w.dir) continue;
       if (safe(game, w, d)) { game.setDir(w.id, d); return; }
     }
   }
 
-  G.cpuThink = function (game) {
-    for (const w of game.warriors) if (w.isCpu && w.alive) think(game, w);
+  // dashOnly=true: ダッシュ中のCPUだけ考える(半拍の追加移動用)
+  G.cpuThink = function (game, dashOnly = false) {
+    for (const w of game.warriors) if (w.isCpu && w.alive && (!dashOnly || w.dash > 0)) think(game, w);
   };
 })(globalThis.PG);

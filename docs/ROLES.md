@@ -4,11 +4,13 @@
 |---|---|---|---|
 | ゲームデザイン | ルール・パラメータ調整 | `src/config.js` | ベース完了 |
 | ゲームロジック | 陣取り・軌跡・撃破・囲い込み | `src/game.js` | ベース完了 |
-| CPU AI | 敵戦士の思考(遠征/攻撃/帰還) | `src/cpu.js` | ベース完了(要チューニング) |
+| CPU AI | 敵戦士の思考(遠征/攻撃/帰還/アイテム/危険回避/ダッシュ)、難易度3段階 | `src/cpu.js` | 完了(要チューニング) |
 | 描画・画像 | Canvas描画、方向別スプライト | `src/render.js`, `assets/` | 画像組み込み済み |
 | ツール | 切り出し・透明化・壁データ生成 | `tools/build_assets.py`, `tools/build_map.py` | 完了 |
-| UI・入力 | キー/スワイプ、HUD、開始/結果 | `src/main.js`, `index.html` | ベース完了 |
-| QA | CPU同士の長時間シミュ | `tests/sim.js` (`node tests/sim.js`) | あり |
+| UI・入力 | キー/スワイプ/ダッシュボタン、HUD、難易度、カウントダウン、一時停止、結果・称号 | `src/main.js`, `index.html` | 完了 |
+| 演出 | パーティクル・画面の揺れ・ポップアップ・実況・バナー | `src/fx.js` | 完了 |
+| サウンド | WebAudio 合成の効果音(ファイル不要) | `src/sound.js` | 完了 |
+| QA | CPU同士の長時間シミュ(難易度別) | `tests/sim.js` (`node tests/sim.js`) | あり |
 | オンライン化(次段階) | 下記 | - | 未着手 |
 
 ## オンライン化に向けた設計メモ

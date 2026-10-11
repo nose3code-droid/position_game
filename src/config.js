@@ -15,6 +15,15 @@
     ITEM_COUNT: 14,      // マップ上に同時に存在するアイテム数
     ITEM_RADIUS: 5,      // 取得時に陣地になる範囲(半径マス数)
     ITEM_RESPAWN_MS: 6000, // 取得されたアイテムが再出現するまでの時間
+    DASH_STEPS: 14,      // ダッシュで追加で進むマス数(倍速の持続)
+    DASH_COOLDOWN_MS: 7000,
+    COUNTDOWN_MS: 3000,  // 開始前のカウントダウン
+    // 難易度: think=考える確率, prey=敵の軌跡を狙う確率, item=アイテムを探す距離, trail=遠征の長さ, flee=危険時に帰る, dash=ダッシュを使う
+    DIFFICULTY: {
+      easy:   { label: 'かんたん', think: 0.75, prey: 0.25, item: 9,  trail: [4, 9],  flee: false, dash: false },
+      normal: { label: 'ふつう',   think: 1.0,  prey: 0.7,  item: 16, trail: [6, 16], flee: true,  dash: true },
+      hard:   { label: 'むずかしい', think: 1.0, prey: 0.95, item: 24, trail: [8, 22], flee: true,  dash: true },
+    },
     SHIELD_STEPS: 20,    // 出現直後に倒されない歩数
     SPAWN_SIZE: 3,       // 初期陣地の一辺
     // 画像は assets/ に置くと自動で使われる。無ければ仮描画。

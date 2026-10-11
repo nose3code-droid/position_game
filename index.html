@@ -4,25 +4,53 @@
 <title>戦士の陣取り</title>
 <style>
   body{margin:0;background:#1b1b22;color:#eee;font-family:sans-serif;text-align:center}
-  #hud{padding:8px;font-size:14px;line-height:1.7}
+  #hud{padding:6px 8px;font-size:14px;line-height:1.7;min-height:48px}
   #wrap{position:relative;display:inline-block;max-width:100%}
-  canvas{max-width:100%;height:auto;touch-action:none;background:#000}
-  #overlay{position:absolute;inset:0;background:rgba(0,0,0,.65);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+  canvas{display:block;max-width:100%;height:auto;touch-action:none;background:#000}
+  #overlay{position:absolute;inset:0;background:rgba(10,10,20,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px;box-sizing:border-box}
+  #msg{line-height:1.6;font-size:16px}
+  h1{margin:0;font-size:46px;letter-spacing:4px;color:#fde047;text-shadow:3px 3px 0 #000}
+  .rules{font-size:14px;line-height:1.8;text-align:left;background:rgba(0,0,0,.4);padding:8px 16px;border-radius:8px}
   button{font-size:20px;padding:10px 28px;border-radius:8px;border:0;background:#3b82f6;color:#fff;cursor:pointer}
+  button:hover{filter:brightness(1.15)}
+  .diffs button{font-size:16px;padding:8px 16px;background:#374151;margin:0 3px}
+  .diffs button.on{background:#f59e0b;color:#111;font-weight:bold}
+  #mute{font-size:13px;padding:6px 12px;background:#374151}
+  #dashBtn{position:absolute;right:14px;bottom:14px;width:76px;height:76px;border-radius:50%;padding:0;font-size:15px;font-weight:bold;
+    background:rgba(249,115,22,.75);display:none}
+  @media (pointer: coarse){ #dashBtn{display:block} }
+  #best{font-size:14px;color:#fbbf24}
 </style></head>
 <body>
 <div id="hud"></div>
 <div id="wrap">
   <canvas id="c"></canvas>
+  <button id="dashBtn">ダッシュ</button>
   <div id="overlay">
-    <div id="msg" style="font-size:22px;line-height:1.6">戦士の陣取り<br><small>矢印キー / WASD / スワイプで移動。自陣から出て囲んで戻ると広がる。<br>自分の軌跡を敵に切られたら負け。敵の軌跡を断て!</small></div>
-    <button id="start">スタート (Space)</button>
+    <div id="msg">
+      <h1>戦士の陣取り</h1>
+      <div class="rules">
+        🗡 自陣から出て線を引き、自陣に戻ると囲んだ所が陣地になる<br>
+        ⚠ 線を敵に踏まれたら討ち死に。敵の線を踏めば撃破(+500点)<br>
+        💰 千両箱を取ると周囲の陣地を一気に獲得<br>
+        ⚡ Shift/Space でダッシュ(一時的に倍速)<br>
+        🎮 矢印/WASDで移動・スマホはスワイプ / P:一時停止 / M:音
+      </div>
+    </div>
+    <div class="diffs">
+      <button data-diff="easy">1 かんたん</button><button data-diff="normal">2 ふつう</button><button data-diff="hard">3 むずかしい</button>
+    </div>
+    <div id="best"></div>
+    <button id="start">出陣する (Space)</button>
+    <button id="mute">🔊 音ON (M)</button>
   </div>
 </div>
 <script src="src/config.js"></script>
 <script src="src/mapdata.js"></script>
 <script src="src/game.js"></script>
 <script src="src/cpu.js"></script>
+<script src="src/sound.js"></script>
+<script src="src/fx.js"></script>
 <script src="src/render.js"></script>
 <script src="src/main.js"></script>
 </body></html>

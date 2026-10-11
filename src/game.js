@@ -22,6 +22,7 @@
         id, name: w.name, color: w.color, isCpu: id > 0,
         alive: false, x: 0, y: 0, dir: 1, nextDir: 1, trailLen: 0,
         respawnIn: 0, kills: 0, ai: null, shield: 0,
+        dash: 0, dashCd: 0, trailCells: [], maxPct: 0, items: 0, bestCapture: 0,
       }));
       this.warriors.forEach((w) => this.spawn(w));
       for (let i = 0; i < C.ITEM_COUNT; i++) this.spawnItem();
@@ -52,10 +53,11 @@
         const i = idx(x, y);
         if (this.wall[i]) continue;
         const t = this.trail[i];
-        if (t !== -1 && t !== w.id) { this.kill(this.warriors[t], w); if (this.trail[i] === t) continue; }
+        if (t !== -1 && t !== w.id) { this.kill(this.warriors[t], w, false, 'item'); if (this.trail[i] === t) continue; }
         if (this.owner[i] !== w.id) gained++;
         this.owner[i] = w.id;
       }
+      w.items++;
       this.events.push({ type: 'item', who: w.id, x: item.x, y: item.y, gained });
       if (w.trailLen > 0) this.capture(w); // 取得地点は自陣になるので、軌跡があれば閉じて囲い込む
     }
@@ -74,7 +76,8 @@
         for (let j = 0; j < s; j++) for (let i = 0; i < s; i++) this.owner[idx(x + i, y + j)] = w.id;
         w.x = x + 1; w.y = y + 1;
         w.dir = w.nextDir = this.openDir(w.x, w.y);
-        w.alive = true; w.trailLen = 0; w.ai = null; w.shield = C.SHIELD_STEPS;
+        w.alive = true; w.trailLen = 0; w.trailCells = []; w.ai = null; w.shield = C.SHIELD_STEPS;
+        w.dash = 0; w.dashCd = 0;
         return;
       }
       w.respawnIn = 1000; // 空きが無ければ後で再試行
@@ -103,7 +106,30 @@
       w.nextDir = d;
     }
 
-    kill(w, killer, force = false) {
+    // ダッシュ: しばらく2倍速。使用後はクールダウン
+    dash(id) {
+      const w = this.warriors[id];
+      if (!w.alive || w.dashCd > 0 || w.dash > 0) return false;
+      w.dash = C.DASH_STEPS; w.dashCd = C.DASH_COOLDOWN_MS;
+      this.events.push({ type: 'dash', who: id });
+      return true;
+    }
+
+    // 自分の軌跡に一番近い敵の頭までの距離(軌跡が無ければ Infinity)
+    threat(w) {
+      let best = Infinity;
+      for (const e of this.warriors) {
+        if (e === w || !e.alive) continue;
+        for (const i of w.trailCells) {
+          if (this.trail[i] !== w.id) continue;
+          const d = Math.abs((i % C.COLS) - e.x) + Math.abs(((i / C.COLS) | 0) - e.y);
+          if (d < best) best = d;
+        }
+      }
+      return best;
+    }
+
+    kill(w, killer, force = false, reason = 'cut') {
       if (!w.alive) return;
       if (w.shield > 0 && !force) return; // 保護中は倒されない
       w.alive = false;
@@ -111,33 +137,34 @@
         if (this.owner[i] === w.id) this.owner[i] = -1;
         if (this.trail[i] === w.id) this.trail[i] = -1;
       }
-      w.trailLen = 0;
+      w.trailLen = 0; w.trailCells = []; w.dash = 0;
       w.respawnIn = C.RESPAWN_MS;
       if (killer && killer !== w) killer.kills++;
-      this.events.push({ type: 'kill', victim: w.id, killer: killer ? killer.id : -1 });
+      this.events.push({ type: 'kill', victim: w.id, killer: killer && killer !== w ? killer.id : -1, x: w.x, y: w.y, reason });
     }
 
-    // 1マス進める
-    step() {
+    // 1マス進める。dashOnly=true のときはダッシュ中の戦士だけが追加で1マス進む(半拍)
+    step(dashOnly = false) {
       if (this.over) return;
       const moves = [];
       for (const w of this.warriors) {
         if (!w.alive) continue;
+        if (dashOnly) { if (w.dash <= 0) continue; w.dash--; }
         w.dir = w.nextDir;
         const nx = w.x + DIRS[w.dir].x, ny = w.y + DIRS[w.dir].y;
         moves.push({ w, nx, ny });
       }
       const dead = [];
-      for (const m of moves) if (m.w.shield > 0) m.w.shield--;
+      if (!dashOnly) for (const m of moves) if (m.w.shield > 0) m.w.shield--;
       for (const m of moves) {
         const { w, nx, ny } = m;
-        if (!inside(nx, ny) || this.wall[idx(nx, ny)]) { dead.push([w, null, true]); continue; }
+        if (!inside(nx, ny) || this.wall[idx(nx, ny)]) { dead.push([w, null, true, 'wall']); continue; }
         const t = this.trail[idx(nx, ny)];
-        if (t !== -1) dead.push([this.warriors[t], w]); // 軌跡を断たれた側が倒れる
+        if (t !== -1) dead.push([this.warriors[t], w, false, t === w.id ? 'self' : 'cut']); // 軌跡を断たれた側が倒れる
       }
       for (const a of moves) for (const b of moves) // 正面衝突は相打ち(自陣内で軌跡の無い戦士は対象外)
-        if (a.w.id < b.w.id && a.nx === b.nx && a.ny === b.ny && a.w.trailLen > 0 && b.w.trailLen > 0) { dead.push([a.w, b.w]); dead.push([b.w, a.w]); }
-      for (const [v, k, force] of dead) this.kill(v, k, force);
+        if (a.w.id < b.w.id && a.nx === b.nx && a.ny === b.ny && a.w.trailLen > 0 && b.w.trailLen > 0) { dead.push([a.w, b.w, false, 'headon']); dead.push([b.w, a.w, false, 'headon']); }
+      for (const [v, k, force, why] of dead) this.kill(v, k, force, why);
 
       for (const { w, nx, ny } of moves) {
         if (!w.alive) continue;
@@ -149,7 +176,7 @@
         if (this.owner[i] === w.id) {
           if (w.trailLen > 0) this.capture(w);
         } else {
-          this.trail[i] = w.id; w.trailLen++;
+          this.trail[i] = w.id; w.trailLen++; w.trailCells.push(i);
         }
       }
     }
@@ -157,8 +184,17 @@
     // 軌跡を陣地化し、囲んだ内側を塗る。
     // 自陣と壁で区切られた空き地のうち、最大の領域(外側)以外を囲い込んだ領域として塗る
     capture(w) {
-      for (let i = 0; i < N; i++) if (this.trail[i] === w.id) { this.trail[i] = -1; this.owner[i] = w.id; }
-      w.trailLen = 0;
+      let gained = 0;
+      for (let i = 0; i < N; i++) if (this.trail[i] === w.id) {
+        this.trail[i] = -1;
+        if (this.owner[i] !== w.id) gained++;
+        this.owner[i] = w.id;
+      }
+      w.trailLen = 0; w.trailCells = [];
+      const done = () => {
+        if (gained > w.bestCapture) w.bestCapture = gained;
+        this.events.push({ type: 'capture', who: w.id, x: w.x, y: w.y, gained });
+      };
       const comp = new Int32Array(N).fill(-1), sizes = [];
       for (let s0 = 0; s0 < N; s0++) {
         if (comp[s0] !== -1 || this.wall[s0] || this.owner[s0] === w.id) continue;
@@ -175,20 +211,25 @@
         }
         sizes.push(n);
       }
-      if (sizes.length < 2) return;
+      if (sizes.length < 2) return done();
       const outer = sizes.indexOf(Math.max(...sizes));
       for (let i = 0; i < N; i++) {
         if (comp[i] === -1 || comp[i] === outer) continue;
         const t = this.trail[i];
-        if (t !== -1 && t !== w.id) this.kill(this.warriors[t], w); // 囲い込まれた他者の軌跡 → その戦士を倒す
+        if (t !== -1 && t !== w.id) this.kill(this.warriors[t], w, false, 'enclose'); // 囲い込まれた他者の軌跡 → その戦士を倒す
+        if (this.owner[i] !== w.id) gained++;
         this.owner[i] = w.id;
       }
+      done();
     }
 
     // 時間経過(ms)。CPU復活・タイマー管理
     tick(dt) {
       if (this.over) return;
       this.timeLeft -= dt;
+      for (const w of this.warriors) if (w.dashCd > 0) w.dashCd -= dt;
+      const pct = this.scores();
+      for (const w of this.warriors) if (pct[w.id] > w.maxPct) w.maxPct = pct[w.id];
       for (const w of this.warriors) {
         if (w.alive || w.respawnIn <= 0) continue;
         if (w.isCpu || false) {
