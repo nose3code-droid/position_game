@@ -17,3 +17,8 @@
   (要 numpy, scipy, Pillow。四面図が左側面・正面・右側面・背面の順に並んでいる前提)
 - マップの大きさ・障害物を変えるなら `tools/build_map.py` の TILES_W/TILES_H・障害物数を変えて再実行
   (`src/config.js` の COLS/ROWS = タイル数×3 に合わせる。現在 120x78)
+
+## 音声 (`audio/`)
+- BGM: `bgm_battle` / `bgm_title` はオリジナル曲。`python3 tools/compose_bgm.py` で再生成(要 numpy, ffmpeg)
+- 効果音: Kenney (CC0 / MIT)。出典とライセンスは `audio/LICENSES.md`
+- フォント: DotGothic16 (Google Fonts, SIL Open Font License) をブラウザが読み込む

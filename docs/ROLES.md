@@ -9,7 +9,7 @@
 | ツール | 切り出し・透明化・壁データ生成 | `tools/build_assets.py`, `tools/build_map.py` | 完了 |
 | UI・入力 | キー/スワイプ/ダッシュボタン、HUD、難易度、カウントダウン、一時停止、結果・称号 | `src/main.js`, `index.html` | 完了 |
 | 演出 | パーティクル・画面の揺れ・ポップアップ・実況・バナー | `src/fx.js` | 完了 |
-| サウンド | WebAudio 合成の効果音(ファイル不要) | `src/sound.js` | 完了 |
+| サウンド | BGM(オリジナル曲、`tools/compose_bgm.py`)、Kenney効果音、合成音フォールバック | `src/sound.js`, `assets/audio/` | 完了 |
 | QA | CPU同士の長時間シミュ(難易度別) | `tests/sim.js` (`node tests/sim.js`) | あり |
 | オンライン化(次段階) | 下記 | - | 未着手 |
 

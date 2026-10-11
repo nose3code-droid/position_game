@@ -9,6 +9,7 @@
   const msg = document.getElementById('msg');
   const startBtn = document.getElementById('start');
   const muteBtn = document.getElementById('mute');
+  const bgmBtn = document.getElementById('bgmBtn');
   const dashBtn = document.getElementById('dashBtn');
   // state: title / countdown / play / paused / dying / over
   let game = null, acc = 0, last = 0, state = 'title', half = 0, countdownLeft = 0, dyingLeft = 0;
@@ -32,6 +33,7 @@
     else if (e.code === 'Space') { e.preventDefault(); if (state === 'title' || state === 'over') start(); else doDash(); }
     else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
     else if (e.code === 'KeyM') toggleMute();
+    else if (e.code === 'KeyB') toggleBgm();
     else if (state === 'title' || state === 'over') {
       if (e.code === 'Digit1') setDifficulty('easy');
       if (e.code === 'Digit2') setDifficulty('normal');
@@ -48,16 +50,21 @@
   }, { passive: true });
   startBtn.addEventListener('click', start);
   muteBtn.addEventListener('click', toggleMute);
+  bgmBtn.addEventListener('click', toggleBgm);
+  // ブラウザの自動再生制限: 最初の操作でタイトルBGMを流す
+  const firstTouch = () => { G.sfx.unlock(); if (state === 'title') G.bgm.play('title'); removeEventListener('pointerdown', firstTouch); removeEventListener('keydown', firstTouch); };
+  addEventListener('pointerdown', firstTouch); addEventListener('keydown', firstTouch);
   dashBtn.addEventListener('touchstart', (e) => { e.preventDefault(); doDash(); });
   dashBtn.addEventListener('click', doDash);
-  document.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => setDifficulty(b.dataset.diff)));
+  document.querySelectorAll('[data-diff]').forEach((b) => b.addEventListener('click', () => { G.sfx.ui(); setDifficulty(b.dataset.diff); }));
 
   function doDash() { if (game && state === 'play') game.dash(0); }
   function togglePause() {
-    if (state === 'play') { state = 'paused'; G.fx.banner('一時停止', '#fff', 1e9, 'P / Esc で再開'); }
-    else if (state === 'paused') { state = 'play'; G.fx.banner('', '#fff', 1); last = performance.now(); }
+    if (state === 'play') { state = 'paused'; G.fx.banner('一時停止', '#fff', 1e9, 'P / Esc で再開'); G.bgm.duck(true); }
+    else if (state === 'paused') { state = 'play'; G.fx.banner('', '#fff', 1); last = performance.now(); G.bgm.duck(false); }
   }
   function toggleMute() { const m = G.sfx.toggleMute(); muteBtn.textContent = m ? '🔇 音OFF (M)' : '🔊 音ON (M)'; }
+  function toggleBgm() { G.sfx.unlock(); const on = G.sfx.toggleBgm(); bgmBtn.textContent = on ? '🎵 BGM ON (B)' : '🎵 BGM OFF (B)'; }
   function setDifficulty(d) {
     difficulty = d; store.set('position_game_diff', d);
     document.querySelectorAll('[data-diff]').forEach((b) => b.classList.toggle('on', b.dataset.diff === d));
@@ -127,7 +134,7 @@
     // 残り時間の警告
     const sec = Math.ceil(game.timeLeft / 1000);
     if (sec !== lastSec) {
-      if (sec === 30) G.fx.banner('残り30秒!', '#fde047', 1200);
+      if (sec === 30) { G.fx.banner('残り30秒!', '#fde047', 1200); G.bgm.rate(1.08); }
       if (sec === 10) G.fx.banner('残り10秒!', '#ff5555', 1200);
       if (sec <= 10 && sec > 0) G.sfx.tick();
       lastSec = sec;
@@ -147,6 +154,8 @@
     const title = !me.alive ? '討ち死に…' : rankNo === 1 ? '勝利!' : `${rankNo}位`;
     const rank = RANKS.filter((r) => pts[0] >= r[0]).pop()[1];
     (me.alive && rankNo === 1 ? G.sfx.win : G.sfx.lose)();
+    G.bgm.stop(0.3);
+    setTimeout(() => { if (state === 'over') G.bgm.play('title'); }, 1800);
     const cells = Math.round(sc[0] * game.free / 100);
     msg.innerHTML = `<div style="font-size:30px">${title}</div>` +
       `<div style="font-size:40px;font-weight:900">${pts[0].toLocaleString()}点` +
@@ -179,7 +188,7 @@
         else { G.cpuThink(game, true); game.step(true); } // ダッシュ中の戦士だけ追加で進む
         handleEvents(t);
       }
-      if (game.over) { state = 'dying'; dyingLeft = game.warriors[0].alive ? 600 : 1200; if (game.timeLeft <= 0) G.fx.banner('終了!', '#fff', 1000); }
+      if (game.over) { G.bgm.rate(1); state = 'dying'; dyingLeft = game.warriors[0].alive ? 600 : 1200; if (game.timeLeft <= 0) G.fx.banner('終了!', '#fff', 1000); }
     } else if (state === 'dying') {
       dyingLeft -= dt;
       if (dyingLeft <= 0) { G.fx.clear(); G.render(ctx, game); updateHud(); return finish(); }
@@ -190,7 +199,8 @@
   }
 
   function start() {
-    G.sfx.unlock();
+    G.sfx.unlock(); G.sfx.ui();
+    G.bgm.play('battle'); G.bgm.rate(1);
     game = G.game = new G.Game(); // G.game はデバッグ・テスト用
     game.difficulty = difficulty;
     G.resetCamera(); G.clearEffects(); G.fx.clear();
@@ -204,5 +214,6 @@
 
   setDifficulty(difficulty);
   muteBtn.textContent = G.sfx.muted ? '🔇 音OFF (M)' : '🔊 音ON (M)';
+  bgmBtn.textContent = G.sfx.bgmOn ? '🎵 BGM ON (B)' : '🎵 BGM OFF (B)';
   G.loadImages().then(() => { game = new G.Game(); G.resetCamera(); G.render(ctx, game); updateHud(); });
 })(globalThis.PG);

@@ -164,7 +164,7 @@
     ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(x - 4, y - 20, W + 8, H + 26);
     ctx.fillStyle = '#333'; ctx.fillRect(x, y, W, H);
     ctx.fillStyle = w.dash > 0 ? '#f97316' : ready ? '#22d3ee' : '#64748b'; ctx.fillRect(x, y, W * k, H);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff'; ctx.font = "bold 13px 'DotGothic16', sans-serif"; ctx.textAlign = 'left';
     ctx.fillText(w.dash > 0 ? 'ダッシュ中!' : ready ? 'ダッシュOK [Shift]' : 'ダッシュ充電中…', x, y - 6);
     ctx.restore();
   }

@@ -2,8 +2,12 @@
 <html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>戦士の陣取り</title>
+<link rel="icon" href="assets/item_chest.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
 <style>
-  body{margin:0;background:#1b1b22;color:#eee;font-family:sans-serif;text-align:center}
+  body{margin:0;background:#1b1b22;color:#eee;font-family:'DotGothic16',sans-serif;text-align:center}
+  button{font-family:inherit}
   #hud{padding:6px 8px;font-size:14px;line-height:1.7;min-height:48px}
   #wrap{position:relative;display:inline-block;max-width:100%}
   canvas{display:block;max-width:100%;height:auto;touch-action:none;background:#000}
@@ -15,7 +19,7 @@
   button:hover{filter:brightness(1.15)}
   .diffs button{font-size:16px;padding:8px 16px;background:#374151;margin:0 3px}
   .diffs button.on{background:#f59e0b;color:#111;font-weight:bold}
-  #mute{font-size:13px;padding:6px 12px;background:#374151}
+  #mute,#bgmBtn{font-size:13px;padding:6px 12px;background:#374151}
   #dashBtn{position:absolute;right:14px;bottom:14px;width:76px;height:76px;border-radius:50%;padding:0;font-size:15px;font-weight:bold;
     background:rgba(249,115,22,.75);display:none}
   @media (pointer: coarse){ #dashBtn{display:block} }
@@ -34,7 +38,7 @@
         ⚠ 線を敵に踏まれたら討ち死に。敵の線を踏めば撃破(+500点)<br>
         💰 千両箱を取ると周囲の陣地を一気に獲得<br>
         ⚡ Shift/Space でダッシュ(一時的に倍速)<br>
-        🎮 矢印/WASDで移動・スマホはスワイプ / P:一時停止 / M:音
+        🎮 矢印/WASDで移動・スマホはスワイプ / P:一時停止 / M:音 / B:BGM
       </div>
     </div>
     <div class="diffs">
@@ -42,9 +46,10 @@
     </div>
     <div id="best"></div>
     <button id="start">出陣する (Space)</button>
-    <button id="mute">🔊 音ON (M)</button>
+    <div><button id="mute">🔊 音ON (M)</button> <button id="bgmBtn" class="small">🎵 BGM ON (B)</button></div>
   </div>
 </div>
+<p style="font-size:11px;color:#888">BGM: オリジナル / 効果音: <a style="color:#aaa" href="https://kenney.nl">Kenney</a> (CC0 / MIT) — 詳細は assets/audio/LICENSES.md</p>
 <script src="src/config.js"></script>
 <script src="src/mapdata.js"></script>
 <script src="src/game.js"></script>

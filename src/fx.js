@@ -48,7 +48,7 @@
         if (k >= 1) { pops.splice(i, 1); continue; }
         const scale = k < 0.15 ? 0.6 + k / 0.15 * 0.6 : 1.2 - Math.min(0.2, (k - 0.15)); // ポンと出る
         ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
-        ctx.font = `bold ${Math.round(p.size * scale)}px sans-serif`;
+        ctx.font = `bold ${Math.round(p.size * scale)}px 'DotGothic16', sans-serif`;
         ctx.strokeStyle = '#000'; ctx.lineWidth = 4; ctx.fillStyle = p.color;
         const y = p.y - cy - 20 - k * 30;
         ctx.strokeText(p.text, p.x - cx, y); ctx.fillText(p.text, p.x - cx, y);
@@ -61,7 +61,7 @@
       shake *= 0.85;
       const now = performance.now();
       ctx.save();
-      ctx.textAlign = 'right'; ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'right'; ctx.font = "bold 15px 'DotGothic16', sans-serif";
       let y = H - 12;
       for (let i = feed.length - 1; i >= 0; i--) {
         const f = feed[i], k = (now - f.t0) / 4500;
@@ -89,11 +89,11 @@
           const scale = k < 0.12 ? 0.5 + k / 0.12 * 0.7 : k < 0.25 ? 1.2 - (k - 0.12) / 0.13 * 0.2 : 1;
           ctx.globalAlpha = k > 0.75 ? (1 - k) / 0.25 : 1;
           ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-          ctx.font = `900 ${Math.round(64 * scale)}px sans-serif`;
+          ctx.font = `900 ${Math.round(64 * scale)}px 'DotGothic16', sans-serif`;
           ctx.strokeStyle = '#000'; ctx.lineWidth = 8; ctx.fillStyle = banner.color;
           ctx.strokeText(banner.text, W / 2, H / 2 - 20); ctx.fillText(banner.text, W / 2, H / 2 - 20);
           if (banner.sub) {
-            ctx.font = 'bold 24px sans-serif'; ctx.lineWidth = 5; ctx.fillStyle = '#fff';
+            ctx.font = "bold 24px 'DotGothic16', sans-serif"; ctx.lineWidth = 5; ctx.fillStyle = '#fff';
             ctx.strokeText(banner.sub, W / 2, H / 2 + 24); ctx.fillText(banner.sub, W / 2, H / 2 + 24);
           }
         }
