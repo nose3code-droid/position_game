@@ -31,6 +31,8 @@
       hard:   { label: 'むずかしい', think: 1, prey: 1, preyRange: 36, chase: 9, item: 28, trail: [8, 32], greed: 0.7,
                 flee: true, margin: 3, attackMaxTrail: 28, dash: true, huntPlayer: true },
     },
+    // オンライン対戦: 一旦無効化中。戻すときは true にして index.html のコメントアウトを外す
+    ONLINE_ENABLED: false,
     CPU_RESPAWN: false,  // 倒されたCPUは復活しない
     SCORE_CLEAR_PER_SEC: 20, // CPUを全滅させたときの残り時間ボーナス(1秒あたり)
     SHIELD_STEPS: 20,    // 出現直後に倒されない歩数

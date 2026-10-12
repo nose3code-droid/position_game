@@ -55,6 +55,7 @@
     </div>
     <div id="best"></div>
     <button id="start">出陣する (Space)</button>
+    <!-- オンライン対戦(一旦無効化中。戻すときは config.js の ONLINE_ENABLED を true にしてこのコメントを外す)
     <div id="titleBox" class="online">
       🌐 <b>オンライン対戦</b>(最大4人・空きはCPU)<br>
       名前 <input id="pname" maxlength="10" size="10">
@@ -70,16 +71,17 @@
       <button id="lobbyLeave" class="sm">退出</button>
     </div>
     <div id="netStatus" style="font-size:13px;color:#93c5fd;min-height:18px"></div>
+    -->
     <div><button id="mute">🔊 音ON (M)</button> <button id="bgmBtn" class="small">🎵 BGM ON (B)</button></div>
   </div>
 </div>
-<p style="font-size:11px;color:#888">BGM: オリジナル / 効果音: <a style="color:#aaa" href="https://kenney.nl">Kenney</a> (CC0 / MIT) / 通信: PeerJS (MIT) — 詳細は assets/audio/LICENSES.md, vendor/PEERJS_LICENSE</p>
-<script src="vendor/peerjs.min.js"></script>
+<p style="font-size:11px;color:#888">BGM: オリジナル / 効果音: <a style="color:#aaa" href="https://kenney.nl">Kenney</a> (CC0 / MIT) — 詳細は assets/audio/LICENSES.md</p>
+<!-- <script src="vendor/peerjs.min.js"></script> オンライン対戦(無効化中) -->
 <script src="src/config.js"></script>
 <script src="src/mapdata.js"></script>
 <script src="src/game.js"></script>
 <script src="src/cpu.js"></script>
-<script src="src/net.js"></script>
+<!-- <script src="src/net.js"></script> オンライン対戦(無効化中) -->
 <script src="src/sound.js"></script>
 <script src="src/fx.js"></script>
 <script src="src/render.js"></script>

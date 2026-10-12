@@ -1,7 +1,12 @@
 // [担当: UI・入力] 入力(キー/スワイプ/ボタン)、ゲームループ、HUD、演出・効果音、オンラインのロビー
 (function (G) {
   const { CONFIG: C } = G;
-  const $ = (id) => document.getElementById(id);
+  // オンライン機能を無効化中(CONFIG.ONLINE_ENABLED=false)は index.html から該当要素をコメントアウトしている。
+  // 要素が無いときは画面に出ない空の要素を返し、オンライン用の処理には到達しないようにする
+  const stubs = {};
+  const $ = (id) => document.getElementById(id) ||
+    stubs[id] || (stubs[id] = document.createElement(id === 'pname' || id === 'roomIn' || id === 'cpuFill' ? 'input' : 'div'));
+  const ONLINE = !!C.ONLINE_ENABLED && !!G.net && !!document.getElementById('titleBox');
   const canvas = $('c');
   const ctx = canvas.getContext('2d');
   canvas.width = C.VIEW_COLS * C.CELL; canvas.height = C.VIEW_ROWS * C.CELL;
@@ -139,6 +144,7 @@
 
   // ---- オンライン: ホスト ----
   function hostRoom() {
+    if (!ONLINE) return;
     G.sfx.unlock(); G.sfx.ui(); store.set('position_game_name', myName());
     netStatus.textContent = '部屋を準備しています…';
     mode = 'host'; mySlot = 0; players = [{ name: myName(), conn: null }];
@@ -211,6 +217,7 @@
 
   // ---- オンライン: 参加者 ----
   function joinRoom() {
+    if (!ONLINE) return;
     G.sfx.unlock(); G.sfx.ui(); store.set('position_game_name', myName());
     const code = $('roomIn').value;
     netStatus.textContent = '接続しています…';
@@ -451,5 +458,5 @@
   muteBtn.textContent = G.sfx.muted ? '🔇 音OFF (M)' : '🔊 音ON (M)';
   bgmBtn.textContent = G.sfx.bgmOn ? '🎵 BGM ON (B)' : '🎵 BGM OFF (B)';
   G.loadImages().then(() => { if (!game) { game = new G.Game(); G.resetCamera(); G.render(ctx, game); updateHud(); } });
-  if (roomParam) netStatus.textContent = `部屋 ${roomParam.toUpperCase()} に招待されています。名前を入れて「参加」を押してください`;
+  if (ONLINE && roomParam) netStatus.textContent = `部屋 ${roomParam.toUpperCase()} に招待されています。名前を入れて「参加」を押してください`;
 })(globalThis.PG);
