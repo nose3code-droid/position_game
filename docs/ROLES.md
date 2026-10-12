@@ -11,7 +11,7 @@
 | 演出 | パーティクル・画面の揺れ・ポップアップ・実況・バナー | `src/fx.js` | 完了 |
 | サウンド | BGM(オリジナル曲、`tools/compose_bgm.py`)、Kenney効果音、合成音フォールバック | `src/sound.js`, `assets/audio/` | 完了 |
 | QA | CPU同士の長時間シミュ(難易度別) | `tests/sim.js` (`node tests/sim.js`) | あり |
-| オンライン化(次段階) | 下記 | - | 未着手 |
+| オンライン | P2P(PeerJS/WebRTC)でホストが計算・参加者へ差分同期、ロビー、切断時はCPU代行 | `src/net.js`, `src/main.js`, `docs/ONLINE.md` | 完了 |
 
 ## オンライン化に向けた設計メモ
 - `Game` は描画・入力に依存しない。サーバ(Node)でそのまま動かせる。

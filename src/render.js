@@ -63,7 +63,13 @@
 
   function updateCamera(game, now) {
     const S = C.CELL, VW = C.VIEW_COLS * S, VH = C.VIEW_ROWS * S;
-    const p = game.warriors[0], v = visPos(p, now);
+    // 自分を追う。倒れたら(オンライン観戦)生きている戦士のうち点数が最も高い者を追う
+    let p = game.warriors[game.meId];
+    if (!p.alive && game.online) {
+      const pts = game.points(), alive = game.warriors.filter((w) => w.alive).sort((a, b) => pts[b.id] - pts[a.id]);
+      if (alive.length) p = alive[0];
+    }
+    const v = visPos(p, now);
     const tx = Math.min(Math.max((v.x + 0.5) * S - VW / 2, 0), C.COLS * S - VW);
     const ty = Math.min(Math.max((v.y + 0.5) * S - VH / 2, 0), C.ROWS * S - VH);
     if (!cam.init) { cam.x = tx; cam.y = ty; cam.init = true; }
@@ -130,7 +136,7 @@
     for (const t of game.items) ctx.fillRect(x0 + t.x * MINI, y0 + t.y * MINI, 3, 3);
     for (const wr of game.warriors) if (wr.alive) {
       ctx.fillStyle = wr.color; ctx.strokeStyle = '#000';
-      ctx.beginPath(); ctx.arc(x0 + (wr.x + 0.5) * MINI, y0 + (wr.y + 0.5) * MINI, wr.id === 0 ? 3 : 2, 0, 7);
+      ctx.beginPath(); ctx.arc(x0 + (wr.x + 0.5) * MINI, y0 + (wr.y + 0.5) * MINI, wr.id === game.meId ? 3 : 2, 0, 7);
       ctx.fill(); ctx.stroke();
     }
     ctx.restore();
@@ -138,7 +144,7 @@
 
   function drawOffscreen(ctx, game, cx, cy, S, VW, VH) {
     // 画面外の近くの敵を、画面の縁の矢印で知らせる
-    const p = game.warriors[0];
+    const p = game.warriors[game.meId];
     for (const w of game.warriors) {
       if (w === p || !w.alive) continue;
       const x = (w.x + 0.5) * S - cx, y = (w.y + 0.5) * S - cy;
@@ -156,7 +162,7 @@
   }
 
   function drawDashGauge(ctx, game, VH) {
-    const w = game.warriors[0];
+    const w = game.warriors[game.meId];
     const x = 12, y = VH - 26, W = 150, H = 14;
     const ready = w.dashCd <= 0;
     const k = w.dash > 0 ? w.dash / C.DASH_STEPS : ready ? 1 : 1 - w.dashCd / C.DASH_COOLDOWN_MS;
@@ -182,7 +188,7 @@
     } else {
       ctx.fillStyle = '#d8c9a3'; ctx.fillRect(0, 0, VW, VH);
     }
-    const me = game.warriors[0];
+    const me = game.warriors[game.meId];
     const danger = me.alive && me.trailLen > 0 && game.threat(me) <= 6;  // 敵が自分の軌跡に迫っている
     const blink = Math.floor(now / 120) % 2 === 0;
     const c0 = Math.max(0, Math.floor(cx / S)), c1 = Math.min(C.COLS - 1, Math.ceil((cx + VW) / S));
@@ -203,7 +209,7 @@
       }
       if (t >= 0) {
         ctx.globalAlpha = 0.9;
-        ctx.fillStyle = t === 0 && danger && blink ? '#ff2d2d' : game.warriors[t].color;
+        ctx.fillStyle = t === game.meId && danger && blink ? '#ff2d2d' : game.warriors[t].color;
         ctx.fillRect(px + 3, py + 3, S - 6, S - 6);
       }
     }
@@ -216,7 +222,14 @@
       for (const [tx, ty] of v.trail) drawWarrior(ctx, w, tx * S - cx, ty * S - cy, S);
       ctx.globalAlpha = w.shield > 0 && (w.shield % 4 < 2) ? 0.5 : 1; // 保護中は点滅
       drawWarrior(ctx, w, v.x * S - cx, v.y * S - cy, S);
-      if (w.id === 0) { // 自分の目印
+      if (game.online && w.id !== game.meId) { // オンラインでは名前を表示
+        const nx = (v.x + 0.5) * S - cx, ny = v.y * S - cy - S * C.SPRITE_H + S * 0.6;
+        ctx.save(); ctx.globalAlpha = 1; ctx.font = "bold 12px 'DotGothic16', sans-serif"; ctx.textAlign = 'center';
+        ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.fillStyle = w.color;
+        const label = w.isCpu ? `${w.name}(CPU)` : w.name;
+        ctx.strokeText(label, nx, ny); ctx.fillText(label, nx, ny); ctx.restore();
+      }
+      if (w.id === game.meId) { // 自分の目印
         const mx = (v.x + 0.5) * S - cx, my = v.y * S - cy - S * C.SPRITE_H + S * 0.4 + Math.sin(now / 200) * 2;
         ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(mx - 6, my - 8); ctx.lineTo(mx + 6, my - 8); ctx.lineTo(mx, my); ctx.closePath(); ctx.fill(); ctx.stroke();

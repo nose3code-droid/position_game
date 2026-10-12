@@ -117,3 +117,30 @@ for (const diff of Object.keys(G.CONFIG.DIFFICULTY)) {
   if (up !== upFree || down !== 0 || foe.alive || !foe2.alive) throw new Error(`仕切り up=${up}/${upFree} down=${down} foe=${foe.alive} foe2=${foe2.alive}`);
   console.log(`OK 壁から壁の仕切り: 狭い側 ${up}マス獲得・その中の敵は撃破・反対側は無事`);
 }
+
+// オンライン同期: ホストの盤面を差分で送り続け、参加者側と完全一致するか
+{
+  require('../src/net.js');
+  const slots = [{ name: 'A' }, { name: 'B' }, { name: 'C', cpu: true }, { name: 'D', cpu: true }];
+  const host = new G.Game(rng, { slots, online: true });
+  host.difficulty = 'hard';
+  const guest = new G.Game(rng, { slots, online: true });
+  const prev = {};
+  let n = 0, events = 0;
+  for (let t = 0; t < 1200 && !host.over; t++) {
+    for (const half of [false, true]) {
+      host.warriors[0].isCpu = host.warriors[1].isCpu = true; // テストでは人間の操作もCPUに任せる
+      G.cpuThink(host, half);
+      host.warriors[0].isCpu = host.warriors[1].isCpu = false;
+      host.step(half); if (!half) host.tick(G.CONFIG.STEP_MS);
+      const snap = JSON.parse(JSON.stringify(G.netSync.makeSnapshot(host, prev, n++ % 40 === 0, host.events.splice(0))));
+      G.netSync.applySnapshot(guest, snap);
+      events += guest.events.splice(0).length;
+      for (let i = 0; i < host.owner.length; i++)
+        if (host.owner[i] !== guest.owner[i] || host.trail[i] !== guest.trail[i]) throw new Error(`同期ずれ step=${n} cell=${i}`);
+      host.warriors.forEach((w, id) => { const v = guest.warriors[id];
+        if (w.x !== v.x || w.y !== v.y || w.alive !== v.alive || w.kills !== v.kills) throw new Error(`戦士の同期ずれ ${id}`); });
+    }
+  }
+  console.log(`OK オンライン同期: ${n}回の差分送信で盤面が一致 / イベント${events}件`);
+}

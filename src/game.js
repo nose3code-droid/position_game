@@ -6,8 +6,12 @@
   const inside = (x, y) => x >= 0 && y >= 0 && x < C.COLS && y < C.ROWS;
 
   class Game {
-    constructor(rng = Math.random) {
+    // opts.slots: [{ name, cpu }] 参加枠(省略時は 1人 + CPU)。opts.online: オンライン対戦
+    constructor(rng = Math.random, opts = {}) {
       this.rng = rng;
+      this.online = !!opts.online;
+      this.meId = 0; // この画面で操作する戦士
+      const slots = opts.slots || C.WARRIORS.slice(0, 1 + C.CPU_COUNT).map((w, id) => ({ name: w.name, cpu: id > 0 }));
       this.owner = new Int8Array(N).fill(-1); // 陣地の持ち主
       this.trail = new Int8Array(N).fill(-1); // 通った道(軌跡)の持ち主
       this.wall = new Uint8Array(N);          // 壁(mapdata.js)。進入すると倒れる
@@ -18,8 +22,8 @@
       this.timeLeft = C.MATCH_SEC * 1000;
       this.over = false;
       this.events = []; // 'kill' 等をUIが拾う
-      this.warriors = C.WARRIORS.slice(0, 1 + C.CPU_COUNT).map((w, id) => ({
-        id, name: w.name, color: w.color, isCpu: id > 0,
+      this.warriors = slots.map((sl, id) => ({
+        id, name: sl.name || C.WARRIORS[id].name, color: C.WARRIORS[id].color, isCpu: !!sl.cpu,
         alive: false, x: 0, y: 0, dir: 1, nextDir: 1, trailLen: 0,
         respawnIn: 0, kills: 0, ai: null, shield: 0,
         dash: 0, dashCd: 0, trailCells: [], maxPct: 0, items: 0, bestCapture: 0,
@@ -266,6 +270,12 @@
         else if (this.itemTimers[k] <= 0) this.itemTimers[k] = 1000;
       }
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.over = true; }
+      if (this.online) {
+        // オンライン: 時間切れ / 人間が全員倒れた / 生き残りが1人以下 で終了
+        const alive = this.warriors.filter((w) => w.alive);
+        if (!alive.some((w) => !w.isCpu) || alive.length <= 1) this.over = true;
+        return;
+      }
       if (!this.warriors[0].alive) this.over = true; // プレイヤーが倒れたら終了
       // CPUを全滅させたら勝利で終了(残り時間はボーナス)
       if (!C.CPU_RESPAWN && this.warriors[0].alive && !this.warriors[0].isCpu &&

@@ -24,6 +24,11 @@
     background:rgba(249,115,22,.75);display:none}
   @media (pointer: coarse){ #dashBtn{display:block} }
   #best{font-size:14px;color:#fbbf24}
+  #overlay{overflow:auto}
+  .online{font-size:14px;background:rgba(0,0,0,.4);padding:8px 14px;border-radius:8px;line-height:2}
+  .online input{font-family:inherit;font-size:15px;padding:4px 6px;border-radius:6px;border:1px solid #555;background:#111;color:#fff}
+  button.sm{font-size:14px;padding:6px 14px;background:#4b5563}
+  #lobbyStart{background:#16a34a}
 </style></head>
 <body>
 <div id="hud"></div>
@@ -42,19 +47,36 @@
         🎮 矢印/WASDで移動・スマホはスワイプ / P:一時停止 / M:音 / B:BGM
       </div>
     </div>
-    <div class="diffs">
+    <div class="diffs" id="diffs">
       <button data-diff="easy">1 かんたん</button><button data-diff="normal">2 ふつう</button><button data-diff="hard">3 むずかしい</button>
     </div>
     <div id="best"></div>
     <button id="start">出陣する (Space)</button>
+    <div id="titleBox" class="online">
+      🌐 <b>オンライン対戦</b>(最大4人・空きはCPU)<br>
+      名前 <input id="pname" maxlength="10" size="10">
+      <button id="hostBtn" class="sm">部屋を作る</button>
+      ／ <input id="roomIn" maxlength="5" size="6" placeholder="部屋コード" style="text-transform:uppercase">
+      <button id="joinBtn" class="sm">参加</button>
+    </div>
+    <div id="lobbyBox" class="online" style="display:none">
+      <div id="lobbyInfo"></div>
+      <label id="cpuFillRow" style="font-size:14px"><input type="checkbox" id="cpuFill" checked> 空き枠をCPUで埋める</label><br>
+      <button id="lobbyStart">対戦開始</button>
+      <button id="copyLink" class="sm">招待リンクをコピー</button>
+      <button id="lobbyLeave" class="sm">退出</button>
+    </div>
+    <div id="netStatus" style="font-size:13px;color:#93c5fd;min-height:18px"></div>
     <div><button id="mute">🔊 音ON (M)</button> <button id="bgmBtn" class="small">🎵 BGM ON (B)</button></div>
   </div>
 </div>
-<p style="font-size:11px;color:#888">BGM: オリジナル / 効果音: <a style="color:#aaa" href="https://kenney.nl">Kenney</a> (CC0 / MIT) — 詳細は assets/audio/LICENSES.md</p>
+<p style="font-size:11px;color:#888">BGM: オリジナル / 効果音: <a style="color:#aaa" href="https://kenney.nl">Kenney</a> (CC0 / MIT) / 通信: PeerJS (MIT) — 詳細は assets/audio/LICENSES.md, vendor/PEERJS_LICENSE</p>
+<script src="vendor/peerjs.min.js"></script>
 <script src="src/config.js"></script>
 <script src="src/mapdata.js"></script>
 <script src="src/game.js"></script>
 <script src="src/cpu.js"></script>
+<script src="src/net.js"></script>
 <script src="src/sound.js"></script>
 <script src="src/fx.js"></script>
 <script src="src/render.js"></script>
