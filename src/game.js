@@ -232,7 +232,7 @@
       for (const w of this.warriors) if (pct[w.id] > w.maxPct) w.maxPct = pct[w.id];
       for (const w of this.warriors) {
         if (w.alive || w.respawnIn <= 0) continue;
-        if (w.isCpu || false) {
+        if (w.isCpu && C.CPU_RESPAWN) {
           w.respawnIn -= dt;
           if (w.respawnIn <= 0) this.spawn(w);
         }
@@ -244,13 +244,19 @@
       }
       if (this.timeLeft <= 0) { this.timeLeft = 0; this.over = true; }
       if (!this.warriors[0].alive) this.over = true; // プレイヤーが倒れたら終了
+      // CPUを全滅させたら勝利で終了(残り時間はボーナス)
+      if (!C.CPU_RESPAWN && this.warriors[0].alive && !this.warriors[0].isCpu &&
+          this.warriors.every((w) => w.id === 0 || !w.alive)) {
+        this.over = true; this.cleared = true;
+        this.clearBonus = Math.ceil(this.timeLeft / 1000) * C.SCORE_CLEAR_PER_SEC;
+      }
     }
 
     // 点数 = 陣地マス数 x SCORE_CELL + 撃破数 x SCORE_KILL
     points() {
       const cnt = new Array(this.warriors.length).fill(0);
       for (let i = 0; i < N; i++) if (this.owner[i] >= 0) cnt[this.owner[i]]++;
-      return cnt.map((c, id) => c * C.SCORE_CELL + this.warriors[id].kills * C.SCORE_KILL);
+      return cnt.map((c, id) => c * C.SCORE_CELL + this.warriors[id].kills * C.SCORE_KILL + (id === 0 ? this.clearBonus || 0 : 0));
     }
 
     scores() {

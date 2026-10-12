@@ -18,12 +18,21 @@
     DASH_STEPS: 14,      // ダッシュで追加で進むマス数(倍速の持続)
     DASH_COOLDOWN_MS: 7000,
     COUNTDOWN_MS: 3000,  // 開始前のカウントダウン
-    // 難易度: think=考える確率, prey=敵の軌跡を狙う確率, item=アイテムを探す距離, trail=遠征の長さ, flee=危険時に帰る, dash=ダッシュを使う
+    // 難易度(CPUの強さ)
+    //  think: 考える確率 / prey: 敵の軌跡を狙う確率 / preyRange: 狙う距離 / chase: 相手の帰還より何歩遅くても追うか
+    //  item: 千両箱を探す距離 / trail: 遠征の長さ[最小,最大] / greed: 敵との距離に対する遠征の大きさ
+    //  margin: 危険判断の余裕(大きいほど慎重) / attackMaxTrail: 自分の軌跡がこれ未満なら攻撃する
+    //  dash: ダッシュを使う / huntPlayer: プレイヤーを優先して狙う
     DIFFICULTY: {
-      easy:   { label: 'かんたん', think: 0.75, prey: 0.25, item: 9,  trail: [4, 9],  flee: false, dash: false },
-      normal: { label: 'ふつう',   think: 1.0,  prey: 0.7,  item: 16, trail: [6, 16], flee: true,  dash: true },
-      hard:   { label: 'むずかしい', think: 1.0, prey: 0.95, item: 24, trail: [8, 22], flee: true,  dash: true },
+      easy:   { label: 'かんたん', think: 0.85, prey: 0.5, preyRange: 10, chase: 0, item: 12, trail: [5, 14], greed: 0.5,
+                flee: true, margin: 0, attackMaxTrail: 6, dash: false, huntPlayer: false },
+      normal: { label: 'ふつう', think: 1, prey: 0.9, preyRange: 22, chase: 5, item: 20, trail: [6, 24], greed: 0.6,
+                flee: true, margin: 2, attackMaxTrail: 16, dash: true, huntPlayer: false },
+      hard:   { label: 'むずかしい', think: 1, prey: 1, preyRange: 36, chase: 9, item: 28, trail: [8, 32], greed: 0.7,
+                flee: true, margin: 3, attackMaxTrail: 28, dash: true, huntPlayer: true },
     },
+    CPU_RESPAWN: false,  // 倒されたCPUは復活しない
+    SCORE_CLEAR_PER_SEC: 20, // CPUを全滅させたときの残り時間ボーナス(1秒あたり)
     SHIELD_STEPS: 20,    // 出現直後に倒されない歩数
     SPAWN_SIZE: 3,       // 初期陣地の一辺
     // 画像は assets/ に置くと自動で使われる。無ければ仮描画。

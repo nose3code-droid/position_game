@@ -78,7 +78,8 @@
     const order = game.warriors.map((w) => w.id).sort((a, b) => pts[b] - pts[a]);
     const sec = Math.ceil(game.timeLeft / 1000);
     const t = sec <= 10 ? `<b style="color:#ff5555;font-size:18px">残り ${sec}秒</b>` : `<b>残り ${sec}秒</b>`;
-    hud.innerHTML = `${t} &nbsp; <b>スコア ${pts[0].toLocaleString()}</b>` +
+    const left = game.warriors.filter((w) => w.isCpu && w.alive).length;
+    hud.innerHTML = `${t} &nbsp; <b>スコア ${pts[0].toLocaleString()}</b> &nbsp; <b>残りの敵 ${left}/${C.CPU_COUNT}</b>` +
       ` <small>(ベスト ${Math.max(getBest(), pts[0]).toLocaleString()} / ${C.DIFFICULTY[difficulty].label})</small><br>` +
       order.map((id, n) => { const w = game.warriors[id];
         const me = id === 0 ? 'font-weight:bold;text-decoration:underline' : '';
@@ -117,6 +118,7 @@
         const why = { wall: 'が壁に激突', self: 'が自分の軌跡で自滅', headon: 'と相打ち' }[e.reason];
         if (k) G.fx.log(`${tag(k)} が ${tag(v)} を${e.reason === 'enclose' ? '包囲して' : e.reason === 'item' ? '千両箱で' : ''}撃破!`);
         else G.fx.log(`${tag(v)} ${why || 'が倒れた'}`);
+        if (v.isCpu && !C.CPU_RESPAWN) G.fx.log(`${tag(v)} 脱落! 残り${game.warriors.filter((w) => w.isCpu && w.alive).length}人`);
         if (e.victim === 0) { G.sfx.death(); G.fx.shake(12); }
         else if (e.killer === 0) {
           G.sfx.kill(); G.fx.shake(6);
@@ -151,9 +153,9 @@
     const best = getBest(), isBest = pts[0] > best;
     if (isBest) store.set(bestKey(), pts[0]);
     const rankNo = order.indexOf(0) + 1;
-    const title = !me.alive ? '討ち死に…' : rankNo === 1 ? '勝利!' : `${rankNo}位`;
+    const title = game.cleared ? '天下統一! 敵を全滅させた' : !me.alive ? '討ち死に…' : rankNo === 1 ? '勝利!' : `${rankNo}位`;
     const rank = RANKS.filter((r) => pts[0] >= r[0]).pop()[1];
-    (me.alive && rankNo === 1 ? G.sfx.win : G.sfx.lose)();
+    (me.alive && (rankNo === 1 || game.cleared) ? G.sfx.win : G.sfx.lose)();
     G.bgm.stop(0.3);
     setTimeout(() => { if (state === 'over') G.bgm.play('title'); }, 1800);
     const cells = Math.round(sc[0] * game.free / 100);
@@ -161,7 +163,8 @@
       `<div style="font-size:40px;font-weight:900">${pts[0].toLocaleString()}点` +
       (isBest ? ' <span style="color:#fbbf24;font-size:22px">NEW BEST!</span>' : '') + '</div>' +
       `<div>称号: <b style="color:#fde047">${rank}</b> <small>(${C.DIFFICULTY[difficulty].label})</small></div>` +
-      `<small>陣地 ${cells}マス×${C.SCORE_CELL} + 撃破 ${me.kills}人×${C.SCORE_KILL} / ` +
+      `<small>陣地 ${cells}マス×${C.SCORE_CELL} + 撃破 ${me.kills}人×${C.SCORE_KILL}` +
+      (game.cleared ? ` + 全滅ボーナス ${game.clearBonus.toLocaleString()}点(残り${Math.ceil(game.timeLeft / 1000)}秒×${C.SCORE_CLEAR_PER_SEC})` : '') + ' / ' +
       `最大占領率 ${me.maxPct.toFixed(1)}% / 最大囲い込み ${me.bestCapture}マス / 千両箱 ${me.items}個<br>` +
       `ベスト ${Math.max(best, pts[0]).toLocaleString()}点</small><br>` +
       '<small>' + order.map((id, n) => `${n + 1}位 ${game.warriors[id].name} ${pts[id].toLocaleString()}点`).join(' / ') + '</small>';
@@ -188,7 +191,7 @@
         else { G.cpuThink(game, true); game.step(true); } // ダッシュ中の戦士だけ追加で進む
         handleEvents(t);
       }
-      if (game.over) { G.bgm.rate(1); state = 'dying'; dyingLeft = game.warriors[0].alive ? 600 : 1200; if (game.timeLeft <= 0) G.fx.banner('終了!', '#fff', 1000); }
+      if (game.over) { G.bgm.rate(1); state = 'dying'; dyingLeft = game.warriors[0].alive ? 600 : 1200; if (game.cleared) { G.fx.banner('天下統一!', '#fbbf24', 1400, '敵を全滅させた'); dyingLeft = 1400; } else if (game.timeLeft <= 0) G.fx.banner('終了!', '#fff', 1000); }
     } else if (state === 'dying') {
       dyingLeft -= dt;
       if (dyingLeft <= 0) { G.fx.clear(); G.render(ctx, game); updateHud(); return finish(); }
