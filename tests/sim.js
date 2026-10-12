@@ -144,3 +144,18 @@ for (const diff of Object.keys(G.CONFIG.DIFFICULTY)) {
   }
   console.log(`OK オンライン同期: ${n}回の差分送信で盤面が一致 / イベント${events}件`);
 }
+
+// セキュリティ: 不正な入力・壊れた盤面データで止まらない
+{
+  const g = new G.Game(rng);
+  for (const d of [4, 5, -1, 1e9, 2.5, '1', null, undefined]) g.setDir(1, d);
+  g.setDir(99, 1);
+  g.step(); // 例外が出なければOK
+  const v = new G.Game(rng, { slots: [{ name: 'a' }, { name: 'b' }], online: true });
+  G.netSync.applySnapshot(v, { t: 's', k: 1, o: [99, 5], tr: [-5, 3], w: [[1e9, -5, 9, 1, 'x']], it: [1e9, 2], tl: 'abc', e: [{ type: 'kill', victim: 99 }] });
+  G.netSync.applySnapshot(v, { t: 's', d: [-1, 5, 5, 1e9, 0, 0, 100, 7, 7], w: [null], it: [], tl: 1000, e: 'oops' });
+  if (Math.max(...v.owner) > 1 || Math.min(...v.owner) < -1 || v.events.length) throw new Error('不正な盤面データを受け入れた');
+  G.netSync.applySnapshot(v, { t: 's', d: [], w: [[1e9, -5, 9, 1]], it: [], tl: 1000 });
+  if (v.warriors[0].x !== G.CONFIG.COLS - 1 || v.warriors[0].y !== 0) throw new Error('範囲外の座標を丸めていない');
+  console.log('OK 不正な入力・壊れた盤面データを安全に処理');
+}

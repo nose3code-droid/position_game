@@ -105,7 +105,8 @@
 
     setDir(id, d) {
       const w = this.warriors[id];
-      if (!w.alive) return;
+      if (!w || !w.alive) return;
+      if (!Number.isInteger(d) || d < 0 || d > 3) return; // 不正な向きは無視
       if ((d + 2) % 4 === w.dir) return; // 真後ろ(Uターン)は不可
       w.nextDir = d;
     }

@@ -28,7 +28,7 @@
   const getBest = () => Number(store.get(bestKey(), 0)) || 0;
   const nameIn = $('pname');
   nameIn.value = store.get('position_game_name', '') || `武将${Math.floor(Math.random() * 900 + 100)}`;
-  const myName = () => (nameIn.value.trim() || '名無しの武将').slice(0, 10);
+  const myName = () => cleanName(nameIn.value.trim() || '名無しの武将');
   const roomParam = (location.search.match(/[?&]room=([A-Za-z0-9]{5})/) || [])[1];
   if (roomParam) $('roomIn').value = roomParam.toUpperCase();
 
@@ -126,12 +126,15 @@
     const rows = names.map((n, i) => `<li><span style="color:${C.WARRIORS[i].color}">■</span> ${escapeHtml(n)}${i === 0 ? ' (ホスト)' : ''}${i === mySlot ? ' ← あなた' : ''}</li>`);
     const cpus = cpuFill ? C.WARRIORS.length - names.length : 0;
     for (let i = 0; i < cpus; i++) rows.push(`<li style="opacity:.6"><span style="color:${C.WARRIORS[names.length + i].color}">■</span> CPU (${C.DIFFICULTY[difficulty].label})</li>`);
-    lobbyInfo.innerHTML = `<div style="font-size:15px">部屋コード <b style="font-size:30px;letter-spacing:6px;color:#fde047">${roomCode}</b></div>` +
+    lobbyInfo.innerHTML = `<div style="font-size:15px">部屋コード <b style="font-size:30px;letter-spacing:6px;color:#fde047">${escapeHtml(roomCode)}</b></div>` +
       `<ol style="text-align:left;margin:6px auto;display:inline-block">${rows.join('')}</ol>` +
       `<div style="font-size:13px">${host ? (names.length + cpus >= 2 ? '準備ができたら「対戦開始」' : '参加者を待っています…(CPUで埋めると1人でも開始できます)') : 'ホストが開始するのを待っています…'}</div>`;
     setDifficulty(difficulty);
     overlay.style.display = 'flex';
   }
+  // ネットワークから届く値の検証
+  function cleanName(n) { return (typeof n === 'string' ? n : '武将').replace(/[\u0000-\u001f\u007f\[\]|<>]/g, '').trim().slice(0, 10) || '武将'; }
+  function validSlot(v, n) { return Number.isInteger(v) && v >= 0 && v < n; }
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
   // ---- オンライン: ホスト ----
@@ -153,12 +156,12 @@
     if (m.t === 'ping') return;
     if (m.t === 'hello') {
       if (state !== 'lobby' || players.length >= G.net.MAX_PLAYERS) { conn.send({ t: 'bye', reason: state !== 'lobby' ? '試合中のため入れません' : '部屋が満員です' }); setTimeout(() => conn.close(), 300); return; }
-      players.push({ name: String(m.name || '武将').slice(0, 10), conn, seen: performance.now() });
+      players.push({ name: cleanName(m.name), conn, seen: performance.now() });
       G.sfx.ui(); broadcastLobby(); return;
     }
     const p = players.find((q) => q.conn === conn);
     if (!p || !game || state !== 'play') return;
-    if (m.t === 'in') game.setDir(p.slot, m.d | 0);
+    if (m.t === 'in') { if (Number.isInteger(m.d) && m.d >= 0 && m.d <= 3) game.setDir(p.slot, m.d); } // 不正な値は無視
     else if (m.t === 'dash') game.dash(p.slot);
   }
   function onGuestLeft(conn) {
@@ -227,20 +230,25 @@
     hostSeen = performance.now();
     if (m.t === 'ping') return;
     if (m.t === 'lobby') {
-      roomCode = m.code; mySlot = m.you; cpuFill = m.cpuFill; difficulty = m.difficulty in C.DIFFICULTY ? m.difficulty : difficulty;
-      if (state !== 'countdown' && state !== 'play' && state !== 'dying') showLobby(m.names);
+      if (!Array.isArray(m.names) || !validSlot(m.you, m.names.length)) return;
+      roomCode = /^[A-Z0-9]{5}$/.test(m.code) ? m.code : '?????'; mySlot = m.you; cpuFill = !!m.cpuFill;
+      if (Object.prototype.hasOwnProperty.call(C.DIFFICULTY, m.difficulty)) difficulty = m.difficulty;
+      if (state !== 'countdown' && state !== 'play' && state !== 'dying') showLobby(m.names.slice(0, G.net.MAX_PLAYERS).map(cleanName));
     } else if (m.t === 'tolobby') {
       G.bgm.play('title');
     } else if (m.t === 'start') {
-      mySlot = m.you; difficulty = m.difficulty;
-      beginMatch(new G.Game(Math.random, { slots: m.slots, online: true }), m.you);
+      if (!Array.isArray(m.slots) || m.slots.length < 2 || m.slots.length > G.net.MAX_PLAYERS || !validSlot(m.you, m.slots.length)) return;
+      const slots = m.slots.map((sl) => ({ name: cleanName(sl && sl.name), cpu: !!(sl && sl.cpu) }));
+      mySlot = m.you;
+      if (Object.prototype.hasOwnProperty.call(C.DIFFICULTY, m.difficulty)) difficulty = m.difficulty;
+      beginMatch(new G.Game(Math.random, { slots, online: true }), m.you);
     } else if (m.t === 's') {
       if (!game || !game.online) return;
       G.netSync.applySnapshot(game, m);
       if (state === 'play' || state === 'countdown') handleEvents(performance.now());
       if (game.over && state === 'play') toDying();
     } else if (m.t === 'bye') {
-      netStatus.textContent = m.reason || '部屋から退出しました';
+      netStatus.textContent = typeof m.reason === 'string' ? m.reason.slice(0, 60) : '部屋から退出しました';
       endOnline();
     }
   }
@@ -279,7 +287,7 @@
     const sec = Math.ceil(game.timeLeft / 1000);
     const t = sec <= 10 ? `<b style="color:#ff5555;font-size:18px">残り ${sec}秒</b>` : `<b>残り ${sec}秒</b>`;
     const head = game.online
-      ? ` &nbsp; <b>生存 ${game.warriors.filter((w) => w.alive).length}/${game.warriors.length}</b> <small>(オンライン ${roomCode})</small>${game.warriors[me].alive ? '' : ' <b style="color:#ff6b6b">観戦中</b>'}`
+      ? ` &nbsp; <b>生存 ${game.warriors.filter((w) => w.alive).length}/${game.warriors.length}</b> <small>(オンライン ${escapeHtml(roomCode)})</small>${game.warriors[me].alive ? '' : ' <b style="color:#ff6b6b">観戦中</b>'}`
       : ` &nbsp; <b>残りの敵 ${game.warriors.filter((w) => w.isCpu && w.alive).length}/${C.CPU_COUNT}</b>` +
         ` <small>(ベスト ${Math.max(getBest(), pts[me]).toLocaleString()} / ${C.DIFFICULTY[difficulty].label})</small>`;
     hud.innerHTML = `${t} &nbsp; <b>スコア ${pts[me].toLocaleString()}</b>${head}<br>` +
