@@ -1,5 +1,6 @@
-"""元マップ(assets/source/map_source.png)のタイルを材料に、大きなマップ画像と壁データを生成する。
-出力: assets/map.png(大きなマップ) と src/mapdata.js(壁マスク。# = 壁)
+"""タイル画像から大きなマップ画像と壁データを生成する。
+素材: assets/source/grass_tiles.png(4x4 市松の草原タイル) / assets/source/stone_tile.png(石ブロック1枚)
+出力: assets/map.jpg(マップ画像) と src/mapdata.js(壁マスク。# = 壁)
 使い方: python3 tools/build_map.py   (要 numpy, Pillow)
 1タイル = 3x3セル。TILES_W/TILES_H を変えたら src/config.js の COLS/ROWS (= タイル数*3) も合わせる。
 """
@@ -12,32 +13,28 @@ CELLS_PER_TILE = 3
 SEED = 20260710
 
 root = os.path.join(os.path.dirname(__file__), '..')
-src = Image.open(os.path.join(root, 'assets', 'source', 'map_source.png')).convert('RGB')
-a = np.array(src).astype(int)
 
-# --- 元画像から部品を取り出す(床は約65.9px間隔、左上の床タイルは(58,57)) ---
-X0, Y0, PITCH = 58, 57, 65.86
-def crop(c, r):
-    x, y = round(X0 + PITCH * c) + 1, round(Y0 + PITCH * r) + 1
-    return x, y
-
-def is_green(x, y):
-    p = a[y + 32, x + 32]
-    return p[1] > p[0] + 25 and p[1] > p[2] + 25
-
-floors = {0: [], 1: []}; tufts = {0: [], 1: []}
-for r in range(0, 14):
-    for c in range(0, 21):
-        x, y = crop(c, r)
-        if x + TILE_PX > 1478 or y + TILE_PX > 965 or not is_green(x, y): continue
-        t = a[y + 3:y + 61, x + 3:x + 61]   # 縁のにじみ(隣の壁の線など)を避けて内側だけ使う
-        light = t[..., 1].mean() > 177
-        has_tuft = (t[..., 1] < 125).sum() > 15
-        (tufts if has_tuft else floors)[0 if light else 1].append(
-            src.crop((x + 3, y + 3, x + 61, y + 61)).resize((TILE_PX, TILE_PX), Image.LANCZOS))
-wall = src.crop((194, 191, 194 + TILE_PX, 191 + TILE_PX))   # 障害物ブロック1枚分
+# --- 素材から部品を取り出す ---
+# 草原: 4x4 に並んだ正方形を1枚ずつ切り出す。明るい/暗いに分け、市松の位置に応じて使い分ける。
+#   境目の波打ちは隣(必ず反対の色)とつながるので、ランダムに並べても自然に見える。
+grass = Image.open(os.path.join(root, 'assets', 'source', 'grass_tiles.png')).convert('RGB')
+ga = np.array(grass).astype(int)
+GP = grass.width / 4
+SKIP = {(1, 1)}   # 大きな草が下の境目にはみ出しているマス(並べると切れて見えるので使わない)
+floors = {0: [], 1: []}
+for r in range(4):
+    for c in range(4):
+        if (r, c) in SKIP: continue
+        box = (round(c * GP), round(r * GP), round((c + 1) * GP), round((r + 1) * GP))
+        light = ga[box[1]:box[3], box[0]:box[2], 1].mean() > 188
+        floors[0 if light else 1].append(grass.crop(box).resize((TILE_PX, TILE_PX), Image.LANCZOS))
+# 壁: 白い背景から石ブロックだけを切り出す
+stone = Image.open(os.path.join(root, 'assets', 'source', 'stone_tile.png')).convert('RGB')
+sa = np.array(stone).astype(int)
+ys, xs = np.where((255 - sa).max(axis=2) > 40)
+wall = stone.crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)).resize((TILE_PX, TILE_PX), Image.LANCZOS)
 for k in (0, 1):
-    assert floors[k] and tufts[k], f'床タイルが不足: {k}'
+    assert floors[k], f'床タイルが不足: {k}'
 
 # --- レイアウト: 外周+障害物 ---
 rng = random.Random(SEED)
@@ -63,13 +60,29 @@ while placed < 22 and tries < 5000:
 out = Image.new('RGB', (TILES_W * TILE_PX, TILES_H * TILE_PX))
 for y in range(TILES_H):
     for x in range(TILES_W):
-        if grid[y][x] == '#': t = wall
-        else:
-            par = (x + y) % 2   # 市松模様 (0=明るい床, 1=暗い床)
-            pool = tufts[par] if rng.random() < 0.06 else floors[par]
-            t = rng.choice(pool)
-        out.paste(t, (x * TILE_PX, y * TILE_PX))
-out.save(os.path.join(root, 'assets', 'map.png'), optimize=True)
+        if grid[y][x] == '#': continue
+        out.paste(rng.choice(floors[(x + y) % 2]), (x * TILE_PX, y * TILE_PX))  # (x+y)偶数=明るい床
+# 壁の影: 光は左上から。壁の下・右の床に影を落として立体感を出す
+arr = np.array(out).astype(float)
+S = int(TILE_PX * 0.32)
+fade = (1 - np.arange(S) / S) ** 1.6 * 0.42
+for y in range(TILES_H):
+    for x in range(TILES_W):
+        if grid[y][x] == '#': continue
+        X, Y = x * TILE_PX, y * TILE_PX
+        k = np.zeros((TILE_PX, TILE_PX))
+        if y > 0 and grid[y - 1][x] == '#': k = np.maximum(k, np.pad(np.repeat(fade[:, None], TILE_PX, 1), ((0, TILE_PX - S), (0, 0))))
+        if x > 0 and grid[y][x - 1] == '#': k = np.maximum(k, np.pad(np.repeat(fade[None, :], TILE_PX, 0), ((0, 0), (0, TILE_PX - S))))
+        if x > 0 and y > 0 and grid[y - 1][x - 1] == '#':  # 斜め上の壁の角の影
+            yy, xx = np.mgrid[0:TILE_PX, 0:TILE_PX]
+            d = np.maximum(yy, xx)
+            k = np.maximum(k, np.clip(1 - d / S, 0, 1) ** 1.6 * 0.42)
+        arr[Y:Y + TILE_PX, X:X + TILE_PX] *= (1 - k)[..., None]
+out = Image.fromarray(arr.clip(0, 255).astype(np.uint8))
+for y in range(TILES_H):
+    for x in range(TILES_W):
+        if grid[y][x] == '#': out.paste(wall, (x * TILE_PX, y * TILE_PX))
+out.save(os.path.join(root, 'assets', 'map.jpg'), quality=90, optimize=True)
 
 # --- 壁データ(1タイル = 3x3セル) ---
 rows = []
@@ -80,4 +93,4 @@ with open(os.path.join(root, 'src', 'mapdata.js'), 'w') as f:
     f.write('// 自動生成: python3 tools/build_map.py  (# = 壁)\n(function (G) {\n  G.MAP_WALLS = [\n' +
             ''.join(f"    '{l}',\n" for l in rows) + '  ];\n})(globalThis.PG = globalThis.PG || {});\n')
 print(f'map {out.size}, cells {TILES_W*CELLS_PER_TILE}x{TILES_H*CELLS_PER_TILE}, obstacles {placed}, '
-      f'floor tiles {sum(map(len, floors.values()))}, tuft tiles {sum(map(len, tufts.values()))}')
+      f'floor tiles light={len(floors[0])} dark={len(floors[1])}')

@@ -2,8 +2,10 @@
 
 | ファイル | 内容 |
 |---|---|
-| `map.png` | マップ(外周+障害物の壁つき、2560x1664)。`tools/build_map.py` が元画像のタイルから自動生成。壁の位置は `src/mapdata.js` |
-| `source/map_source.png` | ChatGPT生成の元マップ(タイルの材料) |
+| `map.jpg` | マップ(外周+障害物の壁つき、2560x1664)。`tools/build_map.py` が下のタイル素材から自動生成。壁の位置は `src/mapdata.js` |
+| `source/grass_tiles.png` | 草原タイル(4x4の市松。1枚ずつ切り出してランダムに並べる) |
+| `source/stone_tile.png` | 壁の石ブロック(白背景から切り出す) |
+| `source/map_source.png` | 以前のマップ(現在は未使用) |
 | `source/warrior_*.jpg` | ChatGPT生成の四面図(元データ) |
 | `warrior_<名前>_<up\|right\|down\|left>.png` | 四面図から切り出して背景透明化した戦士(自動生成) |
 | `item_chest.png` | 千両箱アイテム(四面図の正面を切り出し・背景透明化。`tools/build_items.py`) |
@@ -15,7 +17,7 @@
 ## 更新手順
 - 戦士の絵を差し替えたら `assets/source/` のjpgを上書きして `python3 tools/build_assets.py`
   (要 numpy, scipy, Pillow。四面図が左側面・正面・右側面・背面の順に並んでいる前提)
-- マップの大きさ・障害物を変えるなら `tools/build_map.py` の TILES_W/TILES_H・障害物数を変えて再実行
+- タイル素材を差し替えたら `python3 tools/build_map.py` で再生成。マップの大きさ・障害物を変えるなら `tools/build_map.py` の TILES_W/TILES_H・障害物数を変えて再実行
   (`src/config.js` の COLS/ROWS = タイル数×3 に合わせる。現在 120x78)
 
 ## 音声 (`audio/`)

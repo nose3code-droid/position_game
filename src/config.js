@@ -38,7 +38,7 @@
     SHIELD_STEPS: 20,    // 出現直後に倒されない歩数
     SPAWN_SIZE: 3,       // 初期陣地の一辺
     // 画像は assets/ に置くと自動で使われる。無ければ仮描画。
-    MAP_IMAGE: 'assets/map.png',
+    MAP_IMAGE: 'assets/map.jpg',
     ITEM_IMAGE: 'assets/item_chest.png',
     // 戦士スプライト: assets/warrior_<名前>_<up|right|down|left>.png (tools/build_assets.py で生成)
     SPRITES: ['player', 'cpu1', 'cpu2', 'cpu3'],
