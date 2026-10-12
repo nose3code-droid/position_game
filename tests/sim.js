@@ -85,3 +85,35 @@ for (const diff of Object.keys(G.CONFIG.DIFFICULTY)) {
   if (cnt !== 49) throw new Error(`小さな輪の獲得数が不正 ${cnt}`);
   console.log('OK 小さな輪: 7x7=49マス');
 }
+
+// 外周の壁も囲いになる: 壁沿いの小さなポケット / 壁から壁への仕切りは狭い側を取る
+{
+  const { COLS } = G.CONFIG;
+  const setup = () => { const g = new G.Game(rng); g.owner.fill(-1); g.trail.fill(-1); g.warriors[0].trailCells = []; return g; };
+  const addTrail = (g, x, y) => { const i = G.idx(x, y); if (g.wall[i]) throw new Error('壁'); g.trail[i] = 0; g.warriors[0].trailCells.push(i); g.warriors[0].trailLen++; };
+  // ポケット: 上の外周の壁・自陣・線で囲まれた (12..15, 3) の4マス
+  let g = setup();
+  for (const [x, y] of [[10, 3], [11, 3], [10, 4], [11, 4]]) g.owner[G.idx(x, y)] = 0;
+  for (let x = 12; x <= 16; x++) addTrail(g, x, 4);
+  addTrail(g, 16, 3);
+  g.capture(g.warriors[0]);
+  const pocket = [12, 13, 14, 15].every((x) => g.owner[G.idx(x, 3)] === 0);
+  const total = g.owner.reduce((a, o) => a + (o === 0 ? 1 : 0), 0);
+  if (!pocket || total !== 14) throw new Error(`壁沿いポケット ${pocket} ${total}`);
+  console.log('OK 壁沿いポケット: 14マス');
+  // 仕切り: 左の壁沿いの自陣から右の壁まで y=8 に線 → 上側(y=3..7)だけ取る
+  g = setup();
+  for (const [x, y] of [[3, 8], [4, 8]]) g.owner[G.idx(x, y)] = 0;
+  for (let x = 5; x <= COLS - 4; x++) addTrail(g, x, 8);
+  const foe = g.warriors[1]; foe.x = 40; foe.y = 5; foe.shield = 0; // 上側にいる敵は消える
+  const foe2 = g.warriors[2]; foe2.x = 40; foe2.y = 40; // 下側の敵は無事
+  g.capture(g.warriors[0]);
+  let up = 0, upFree = 0, down = 0;
+  for (let i = 0; i < g.owner.length; i++) {
+    const y = (i / COLS) | 0; if (g.wall[i]) continue;
+    if (y >= 3 && y <= 7) { upFree++; if (g.owner[i] === 0) up++; }
+    if (y >= 9 && g.owner[i] === 0) down++;
+  }
+  if (up !== upFree || down !== 0 || foe.alive || !foe2.alive) throw new Error(`仕切り up=${up}/${upFree} down=${down} foe=${foe.alive} foe2=${foe2.alive}`);
+  console.log(`OK 壁から壁の仕切り: 狭い側 ${up}マス獲得・その中の敵は撃破・反対側は無事`);
+}

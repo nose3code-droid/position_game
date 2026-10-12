@@ -182,9 +182,9 @@
     }
 
     // 軌跡を陣地化し、囲んだ内側を塗る。
-    // 内側の判定:
-    //  (A) 自分の陣地だけを囲いとみなし(壁は通れる扱い)、マップの端から辿り着けない領域
-    //  (B) 障害物も囲いに使った場合: 壁と自陣で区切られた領域のうち、外周の壁に接しておらず最大でないもの
+    // 内側の判定(壁は外周・障害物とも囲いとして使える):
+    //  (A) 自陣だけで囲んだ内側(壁は通れる扱いでマップの端から辿り着けない領域)は大きさに関係なく取る
+    //  (B) 残りを壁と自陣で区切った領域に分け、2つ以上あれば最大の領域を外側とみなし、それ以外を取る
     // 内側にいる敵の軌跡・頭は討ち取る(囲われた敵は消える)
     capture(w) {
       let gained = 0;
@@ -195,49 +195,39 @@
       }
       w.trailLen = 0; w.trailCells = [];
       const mine = (i) => this.owner[i] === w.id;
-      const flood = (mark, seeds, pass) => {
-        const stack = [];
-        for (const s0 of seeds) if (!mark[s0] && pass(s0)) { mark[s0] = 1; stack.push(s0); }
-        while (stack.length) {
-          const i = stack.pop(), x = i % C.COLS, y = (i / C.COLS) | 0;
-          if (x > 0) push(i - 1); if (x < C.COLS - 1) push(i + 1);
-          if (y > 0) push(i - C.COLS); if (y < C.ROWS - 1) push(i + C.COLS);
-        }
-        function push(j) { if (!mark[j] && pass(j)) { mark[j] = 1; stack.push(j); } }
-      };
-      const edge = [];
-      for (let x = 0; x < C.COLS; x++) edge.push(idx(x, 0), idx(x, C.ROWS - 1));
-      for (let y = 0; y < C.ROWS; y++) edge.push(idx(0, y), idx(C.COLS - 1, y));
       // (A) マップの端から、自陣以外(壁も含む)を通って辿り着けるマス = 外側
-      const outsideA = new Uint8Array(N);
-      flood(outsideA, edge, (i) => !mine(i));
-      // 外周の壁(マップの端につながる壁)
-      const rim = new Uint8Array(N);
-      flood(rim, edge, (i) => this.wall[i] === 1);
-      // (B) 壁と自陣で区切られた領域ごとに、外周の壁に接しているか・大きさを調べる
-      const comp = new Int32Array(N).fill(-1), sizes = [], touchRim = [];
+      const outsideA = new Uint8Array(N), stack = [];
+      const pushA = (j) => { if (!outsideA[j] && !mine(j)) { outsideA[j] = 1; stack.push(j); } };
+      for (let x = 0; x < C.COLS; x++) { pushA(idx(x, 0)); pushA(idx(x, C.ROWS - 1)); }
+      for (let y = 0; y < C.ROWS; y++) { pushA(idx(0, y)); pushA(idx(C.COLS - 1, y)); }
+      while (stack.length) {
+        const i = stack.pop(), x = i % C.COLS, y = (i / C.COLS) | 0;
+        if (x > 0) pushA(i - 1); if (x < C.COLS - 1) pushA(i + 1);
+        if (y > 0) pushA(i - C.COLS); if (y < C.ROWS - 1) pushA(i + C.COLS);
+      }
+      const fill = new Uint8Array(N);
+      for (let i = 0; i < N; i++) if (!outsideA[i] && !mine(i) && !this.wall[i]) fill[i] = 1;
+      // (B) 壁・自陣・(A)で取る場所 を囲いとして領域分け
+      const comp = new Int32Array(N).fill(-1), sizes = [];
       for (let s0 = 0; s0 < N; s0++) {
-        if (comp[s0] !== -1 || this.wall[s0] || mine(s0)) continue;
-        const c = sizes.length, stack = [s0]; comp[s0] = c; let n = 0, touch = false;
+        if (comp[s0] !== -1 || this.wall[s0] || mine(s0) || fill[s0]) continue;
+        const c = sizes.length; let n = 0;
+        comp[s0] = c; stack.push(s0);
         while (stack.length) {
           const i = stack.pop(); n++;
           const x = i % C.COLS, y = (i / C.COLS) | 0;
           for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-            if (!inside(nx, ny)) { touch = true; continue; }
+            if (!inside(nx, ny)) continue;
             const j = idx(nx, ny);
-            if (rim[j]) touch = true;
-            if (comp[j] !== -1 || this.wall[j] || mine(j)) continue;
+            if (comp[j] !== -1 || this.wall[j] || mine(j) || fill[j]) continue;
             comp[j] = c; stack.push(j);
           }
         }
-        sizes.push(n); touchRim.push(touch);
+        sizes.push(n);
       }
-      const largest = sizes.length ? sizes.indexOf(Math.max(...sizes)) : -1;
-      const fill = new Uint8Array(N);
-      for (let i = 0; i < N; i++) {
-        if (comp[i] === -1) continue; // 壁・自陣
-        const c = comp[i];
-        if (!outsideA[i] || (c !== largest && !touchRim[c])) fill[i] = 1;
+      if (sizes.length >= 2) {
+        const outer = sizes.indexOf(Math.max(...sizes));
+        for (let i = 0; i < N; i++) if (comp[i] !== -1 && comp[i] !== outer) fill[i] = 1;
       }
       // 囲われた敵: 頭が内側にいる、または軌跡が内側にある戦士を討ち取る
       for (const e of this.warriors) {
