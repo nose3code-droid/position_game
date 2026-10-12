@@ -32,6 +32,10 @@
   .online input{font-family:inherit;font-size:15px;padding:4px 6px;border-radius:6px;border:1px solid #555;background:#111;color:#fff}
   button.sm{font-size:14px;padding:6px 14px;background:#4b5563}
   #lobbyStart{background:#16a34a}
+  .vol{font-size:14px;display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+  .vol label{display:flex;align-items:center;gap:6px}
+  .vol input[type=range]{width:120px;accent-color:#f59e0b}
+  .vol span{display:inline-block;width:3.2em;text-align:left}
 </style></head>
 <body>
 <div id="hud"></div>
@@ -47,7 +51,7 @@
         👑 倒した敵は復活しない。全員倒せば天下統一(残り時間ボーナス)<br>
         💰 千両箱を取ると周囲の陣地を一気に獲得<br>
         ⚡ Shift/Space でダッシュ(一時的に倍速)<br>
-        🎮 矢印/WASDで移動・スマホはスワイプ / P:一時停止 / M:音 / B:BGM
+        🎮 矢印/WASDで移動・スマホはスワイプ / P:一時停止(音量調整) / M:音 / B:BGM
       </div>
     </div>
     <div class="diffs" id="diffs">
@@ -73,6 +77,10 @@
     <div id="netStatus" style="font-size:13px;color:#93c5fd;min-height:18px"></div>
     -->
     <div><button id="mute">🔊 音ON (M)</button> <button id="bgmBtn" class="small">🎵 BGM ON (B)</button></div>
+    <div id="vol" class="vol">
+      <label>🎵 BGM <input type="range" id="bgmVol" min="0" max="100" step="5"> <span id="bgmVolV"></span></label>
+      <label>🔔 効果音 <input type="range" id="sfxVol" min="0" max="100" step="5"> <span id="sfxVolV"></span></label>
+    </div>
   </div>
 </div>
 <p style="font-size:11px;color:#888">BGM: オリジナル / 効果音: <a style="color:#aaa" href="https://kenney.nl">Kenney</a> (CC0 / MIT) — 詳細は assets/audio/LICENSES.md</p>

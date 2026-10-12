@@ -8,6 +8,19 @@
   };
   let muted = store.get('position_game_mute', '0') === '1';
   let bgmOn = store.get('position_game_bgm', '1') === '1';
+  // 音量(0〜1)。初期値は従来と同じ聞こえ方になる値
+  const vol01 = (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : d; };
+  let bgmVol = vol01(store.get('position_game_bgm_vol', 0.6), 0.6);
+  let sfxVol = vol01(store.get('position_game_sfx_vol', 0.8), 0.8);
+  let ducked = false;
+  const bgmLevel = () => (bgmOn ? bgmVol * 0.75 * (ducked ? 0.27 : 1) : 0); // WebAudio の BGM 音量
+  const elLevel = () => (muted || !bgmOn ? 0 : bgmVol * 0.58);               // <audio> 再生時の音量
+  function applyVolumes() {
+    if (master) master.gain.value = muted ? 0 : 0.8;
+    if (sfxGain) sfxGain.gain.value = sfxVol * 0.9;
+    if (bgmGain && ac) bgmGain.gain.setTargetAtTime(bgmLevel(), ac.currentTime, 0.05);
+    if (bgm.el) bgm.el.volume = elLevel();
+  }
   let ac = null, master = null, sfxGain = null, bgmGain = null;
   const buffers = {};
   const SFX = ['capture', 'capture_big', 'item', 'kill', 'death', 'tick', 'go', 'count', 'dash', 'ui'];
@@ -20,8 +33,8 @@
       if (!AC) return null;
       ac = new AC();
       master = ac.createGain(); master.gain.value = muted ? 0 : 0.8; master.connect(ac.destination);
-      sfxGain = ac.createGain(); sfxGain.gain.value = 0.7; sfxGain.connect(master);
-      bgmGain = ac.createGain(); bgmGain.gain.value = bgmOn ? 0.45 : 0; bgmGain.connect(master);
+      sfxGain = ac.createGain(); sfxGain.gain.value = sfxVol * 0.9; sfxGain.connect(master);
+      bgmGain = ac.createGain(); bgmGain.gain.value = bgmLevel(); bgmGain.connect(master);
       const a = document.createElement('audio');
       ext = a.canPlayType && a.canPlayType('audio/ogg; codecs="vorbis"') ? 'ogg' : 'mp3'; // ogg は継ぎ目なくループできる
       loadAll();
@@ -89,7 +102,7 @@
       } else if (location.protocol === 'file:') {
         // file:// では fetch できないので <audio> で再生(ループの継ぎ目に一瞬の間ができることがある)
         const el = new Audio(`assets/audio/${BGM[name]}.${ext}`);
-        el.loop = true; el.volume = muted || !bgmOn ? 0 : 0.35;
+        el.loop = true; el.volume = elLevel();
         el.play().catch(() => {});
         this.el = el;
       }
@@ -108,7 +121,7 @@
       if (this.src && ac) this.src.playbackRate.setTargetAtTime(r, ac.currentTime, 0.3);
       if (this.el) this.el.playbackRate = r;
     },
-    duck(on) { if (bgmGain && ac) bgmGain.gain.setTargetAtTime(on ? 0.12 : (bgmOn ? 0.45 : 0), ac.currentTime, 0.1); },
+    duck(on) { ducked = on; applyVolumes(); },
   };
   G.bgm = bgm;
 
@@ -135,15 +148,18 @@
     get bgmOn() { return bgmOn; },
     toggleMute() {
       muted = !muted; store.set('position_game_mute', muted ? '1' : '0');
-      if (master) master.gain.value = muted ? 0 : 0.8;
-      if (bgm.el) bgm.el.volume = muted || !bgmOn ? 0 : 0.35;
+      applyVolumes();
       return muted;
     },
     toggleBgm() {
       bgmOn = !bgmOn; store.set('position_game_bgm', bgmOn ? '1' : '0');
-      if (bgmGain) bgmGain.gain.value = bgmOn ? 0.45 : 0;
-      if (bgm.el) bgm.el.volume = muted || !bgmOn ? 0 : 0.35;
+      applyVolumes();
       return bgmOn;
+    },
+    get bgmVolume() { return bgmVol; },
+    get sfxVolume() { return sfxVol; },
+    setBgmVolume(v) { bgmVol = vol01(v, bgmVol); store.set('position_game_bgm_vol', bgmVol); applyVolumes(); },
+    setSfxVolume(v) { sfxVol = vol01(v, sfxVol); store.set('position_game_sfx_vol', sfxVol); applyVolumes();
     },
   };
 })(globalThis.PG);

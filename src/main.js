@@ -97,8 +97,24 @@
   }
   function togglePause() {
     if (mode !== 'single') return; // オンラインでは一時停止しない
-    if (state === 'play') { state = 'paused'; G.fx.banner('一時停止', '#fff', 1e9, 'P / Esc で再開'); G.bgm.duck(true); }
-    else if (state === 'paused') { state = 'play'; G.fx.banner('', '#fff', 1); last = performance.now(); G.bgm.duck(false); }
+    if (state === 'play') {
+      state = 'paused'; G.bgm.duck(true);
+      // 一時停止画面(ここで音量も変えられる)
+      msg.innerHTML = '<div style="font-size:40px;font-weight:900">一時停止</div><div>P / Esc で再開</div>';
+      $('diffs').style.display = 'none'; $('best').textContent = ''; startBtn.style.display = 'none'; titleBox.style.display = 'none';
+      overlay.style.display = 'flex';
+    } else if (state === 'paused') {
+      state = 'play'; overlay.style.display = 'none'; last = performance.now(); G.bgm.duck(false);
+    }
+  }
+  // 音量スライダー
+  const volUi = [['bgmVol', 'bgmVolume', 'setBgmVolume'], ['sfxVol', 'sfxVolume', 'setSfxVolume']];
+  for (const [id, get, set] of volUi) {
+    const el = $(id), label = $(id + 'V');
+    const show = () => { label.textContent = `${Math.round(G.sfx[get] * 100)}%`; };
+    el.value = Math.round(G.sfx[get] * 100); show();
+    el.addEventListener('input', () => { G.sfx.unlock(); G.sfx[set](el.value / 100); show(); });
+    if (id === 'sfxVol') el.addEventListener('change', () => G.sfx.ui()); // 離したときに試し音
   }
   function toggleMute() { const m = G.sfx.toggleMute(); muteBtn.textContent = m ? '🔇 音OFF (M)' : '🔊 音ON (M)'; }
   function toggleBgm() { G.sfx.unlock(); const on = G.sfx.toggleBgm(); bgmBtn.textContent = on ? '🎵 BGM ON (B)' : '🎵 BGM OFF (B)'; }
