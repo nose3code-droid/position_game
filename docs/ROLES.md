@@ -11,6 +11,7 @@
 | 演出 | パーティクル・画面の揺れ・ポップアップ・実況・バナー | `src/fx.js` | 完了 |
 | サウンド | BGM(オリジナル曲、`tools/compose_bgm.py`)、Kenney効果音、合成音フォールバック | `src/sound.js`, `assets/audio/` | 完了 |
 | QA | CPU同士の長時間シミュ(難易度別) | `tests/sim.js` (`node tests/sim.js`) | あり |
+| ランキング | 自分の記録(ブラウザ保存)・世界ランキング(Supabase、設定で有効化) | `src/ranking.js`, `docs/RANKING.md` | 完了(世界は設定待ち) |
 | オンライン | P2P(PeerJS/WebRTC)でホストが計算・参加者へ差分同期、ロビー、切断時はCPU代行 | `src/net.js`, `src/main.js`, `docs/ONLINE.md` | 完了 |
 
 ## オンライン化に向けた設計メモ

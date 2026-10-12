@@ -31,6 +31,9 @@
       hard:   { label: 'むずかしい', think: 1, prey: 1, preyRange: 36, chase: 9, item: 28, trail: [8, 32], greed: 0.7,
                 flee: true, margin: 3, attackMaxTrail: 28, dash: true, huntPlayer: true },
     },
+    // 世界ランキング(Supabase)。準備手順は docs/RANKING.md。
+    //  enabled を true にし、url(https://xxxx.supabase.co)と anonKey(公開用キー)を入れると表示される
+    WORLD_RANKING: { enabled: false, url: '', anonKey: '', table: 'scores' },
     // オンライン対戦: 一旦無効化中。戻すときは true にして index.html のコメントアウトを外す
     ONLINE_ENABLED: false,
     CPU_RESPAWN: false,  // 倒されたCPUは復活しない

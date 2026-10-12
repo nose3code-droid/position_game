@@ -41,7 +41,13 @@
   const KEYS = { ArrowUp: 0, KeyW: 0, ArrowRight: 1, KeyD: 1, ArrowDown: 2, KeyS: 2, ArrowLeft: 3, KeyA: 3 };
   const typing = () => document.activeElement && document.activeElement.tagName === 'INPUT';
   addEventListener('keydown', (e) => {
-    if (typing()) { if (e.code === 'Enter' && document.activeElement.id === 'roomIn') joinRoom(); return; }
+    if (typing()) {
+      if (e.code === 'Enter' && document.activeElement.id === 'roomIn') joinRoom();
+      if (e.code === 'Enter' && document.activeElement.id === 'wrName') submitWorld();
+      return;
+    }
+    if (e.code === 'KeyR') { toggleRanking(); return; }
+    if (rankOpen()) { if (e.code === 'Escape') closeRanking(); return; } // ランキング表示中は他の操作をしない
     if (e.code in KEYS) { e.preventDefault(); steer(KEYS[e.code]); }
     else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyJ') doDash();
     else if (e.code === 'Space') { e.preventDefault(); if (mode === 'single' && (state === 'title' || state === 'over')) start(); else doDash(); }
@@ -101,12 +107,95 @@
       state = 'paused'; G.bgm.duck(true);
       // 一時停止画面(ここで音量も変えられる)
       msg.innerHTML = '<div style="font-size:40px;font-weight:900">一時停止</div><div>P / Esc で再開</div>';
-      $('diffs').style.display = 'none'; $('best').textContent = ''; startBtn.style.display = 'none'; titleBox.style.display = 'none';
+      $('diffs').style.display = 'none'; $('best').textContent = ''; startBtn.style.display = 'none'; titleBox.style.display = 'none'; $('submitBox').style.display = 'none';
       overlay.style.display = 'flex';
     } else if (state === 'paused') {
+      closeRanking();
       state = 'play'; overlay.style.display = 'none'; last = performance.now(); G.bgm.duck(false);
     }
   }
+  // ---- ランキング画面(いつでも R で開閉) ----
+  const rankPanel = $('rankPanel');
+  let rkTab = 'local', rdTab = difficulty, lastLocalAt = 0, lastResult = null, worldReq = 0;
+  const rankOpen = () => rankPanel.style.display !== 'none';
+  function toggleRanking() { if (rankOpen()) closeRanking(); else openRanking(); }
+  function openRanking(tab, diff) {
+    if (state === 'play' && mode === 'single') togglePause(); // 遊んでいる途中なら一時停止してから開く
+    if (state === 'play' || state === 'countdown') return;     // オンライン対戦中は開かない
+    rkTab = tab || rkTab; rdTab = diff || (G.ranking.DIFFS.includes(difficulty) ? difficulty : 'normal');
+    rankPanel.style.display = 'flex';
+    renderRanking();
+  }
+  function closeRanking() { rankPanel.style.display = 'none'; }
+  $('rankBtn').addEventListener('click', () => { G.sfx.ui(); openRanking(); });
+  $('rankClose').addEventListener('click', () => { G.sfx.ui(); closeRanking(); });
+  document.querySelectorAll('[data-rk]').forEach((b) => b.addEventListener('click', () => { G.sfx.ui(); rkTab = b.dataset.rk; renderRanking(); }));
+  document.querySelectorAll('[data-rd]').forEach((b) => b.addEventListener('click', () => { G.sfx.ui(); rdTab = b.dataset.rd; renderRanking(); }));
+  const fmtDate = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`; };
+  function el(tag, text, cls) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
+  function table(head, rows) {
+    const t = el('table'), tr = el('tr');
+    head.forEach(([h, c]) => tr.appendChild(el('th', h, c)));
+    t.appendChild(tr);
+    for (const r of rows) {
+      const row = el('tr', undefined, r.me ? 'me' : '');
+      r.cells.forEach(([v, c]) => row.appendChild(el('td', v, c)));
+      t.appendChild(row);
+    }
+    return t;
+  }
+  function renderRanking() {
+    document.querySelectorAll('[data-rk]').forEach((b) => b.classList.toggle('on', b.dataset.rk === rkTab));
+    document.querySelectorAll('[data-rd]').forEach((b) => b.classList.toggle('on', b.dataset.rd === rdTab));
+    const box = $('rankList'); box.textContent = '';
+    if (rkTab === 'local') {
+      const list = G.ranking.local(rdTab, 20);
+      if (!list.length) { box.appendChild(el('div', 'まだ記録がありません。遊ぶとここに記録されます', 'empty')); return; }
+      box.appendChild(table([['順位', 'n'], ['スコア'], ['陣地'], ['撃破'], ['', 'n'], ['日付']], list.map((e, i) => ({
+        me: e.at === lastLocalAt,
+        cells: [[`${i + 1}位`, 'n'], [e.score.toLocaleString()], [`${(e.territory || 0).toFixed(1)}%`], [String(e.kills || 0)], [e.cleared ? '👑天下統一' : '', 'n'], [fmtDate(e.at)]],
+      }))));
+      return;
+    }
+    // 世界ランキング
+    if (!G.ranking.worldEnabled()) {
+      box.appendChild(el('div', '🌏 世界ランキングは準備中です。設定が有効になると、ここに世界中の記録が表示されます', 'empty'));
+      return;
+    }
+    box.appendChild(el('div', '読み込み中…', 'empty'));
+    const req = ++worldReq, d = rdTab;
+    G.ranking.world(d, 50).then((rows) => {
+      if (req !== worldReq || rkTab !== 'world') return;
+      box.textContent = '';
+      if (!rows.length) { box.appendChild(el('div', 'まだ登録がありません。最初の天下人になろう!', 'empty')); return; }
+      const myName = store.get('position_game_name', '');
+      box.appendChild(table([['順位', 'n'], ['名前', 'n'], ['スコア'], ['陣地'], ['撃破'], ['日付']], rows.map((e, i) => ({
+        me: !!myName && e.name === myName,
+        cells: [[`${i + 1}位`, 'n'], [(e.cleared ? '👑' : '') + e.name, 'n'], [e.score.toLocaleString()], [`${e.territory.toFixed(1)}%`], [String(e.kills)], [fmtDate(e.at)]],
+      }))));
+    }).catch(() => {
+      if (req !== worldReq) return;
+      box.textContent = '';
+      box.appendChild(el('div', '世界ランキングを読み込めませんでした。時間をおいて試してください', 'empty'));
+    });
+  }
+  // 結果画面から世界ランキングへ登録(本人がボタンを押したときだけ送る)
+  const wrName = $('wrName'), wrStatus = $('wrStatus'), wrSubmit = $('wrSubmit');
+  wrName.value = store.get('position_game_name', '');
+  wrSubmit.addEventListener('click', submitWorld);
+  function submitWorld() {
+    if (!lastResult || lastResult.sent || !G.ranking.worldEnabled()) return;
+    const name = G.ranking.cleanName(wrName.value);
+    if (!name) { wrStatus.textContent = '名前を入れてください(10文字まで)'; return; }
+    store.set('position_game_name', name);
+    wrSubmit.disabled = true; wrStatus.textContent = '送信中…';
+    const res = lastResult;
+    G.ranking.submit({ ...res, name }).then(() => {
+      res.sent = true; wrStatus.textContent = '登録しました!';
+      G.sfx.go(); openRanking('world', res.difficulty);
+    }).catch(() => { wrSubmit.disabled = false; wrStatus.textContent = '登録できませんでした。時間をおいてもう一度試してください'; });
+  }
+
   // 音量スライダー
   const volUi = [['bgmVol', 'bgmVolume', 'setBgmVolume'], ['sfxVol', 'sfxVolume', 'setSfxVolume']];
   for (const [id, get, set] of volUi) {
@@ -398,10 +487,23 @@
     G.bgm.stop(0.3);
     setTimeout(() => { if (state === 'over' || state === 'lobby') G.bgm.play('title'); }, 1800);
     const cells = Math.round(sc[my] * game.free / 100);
+    // ランキングに記録(一人プレイのみ)
+    let rankLine = '';
+    $('submitBox').style.display = 'none';
+    if (!online) {
+      lastResult = { score: pts[my], difficulty, territory: sc[my], kills: me.kills, cleared: !!game.cleared, sent: false };
+      const r = G.ranking.addLocal({ score: pts[my], difficulty, territory: sc[my], kills: me.kills, cleared: !!game.cleared });
+      lastLocalAt = (G.ranking.local(difficulty, 50).find((e, i) => i === r - 1) || {}).at || 0;
+      rankLine = r > 0 ? `<div style="font-size:15px">🏆 自分の記録(${C.DIFFICULTY[difficulty].label}): <b style="color:#fde047">${r}位</b></div>` : '';
+      if (G.ranking.worldEnabled()) {
+        $('submitBox').style.display = ''; wrSubmit.disabled = false; wrStatus.textContent = '';
+        wrName.value = store.get('position_game_name', '') || wrName.value;
+      }
+    }
     msg.innerHTML = `<div style="font-size:30px">${title}</div>` +
       `<div style="font-size:40px;font-weight:900">${pts[my].toLocaleString()}点` +
       (isBest ? ' <span style="color:#fbbf24;font-size:22px">NEW BEST!</span>' : '') + '</div>' +
-      `<div>称号: <b style="color:#fde047">${rank}</b> <small>(${online ? 'オンライン' : C.DIFFICULTY[difficulty].label})</small></div>` +
+      rankLine + `<div>称号: <b style="color:#fde047">${rank}</b> <small>(${online ? 'オンライン' : C.DIFFICULTY[difficulty].label})</small></div>` +
       `<small>陣地 ${cells}マス×${C.SCORE_CELL} + 撃破 ${me.kills}人×${C.SCORE_KILL}` +
       (game.cleared ? ` + 全滅ボーナス ${game.clearBonus.toLocaleString()}点(残り${Math.ceil(game.timeLeft / 1000)}秒×${C.SCORE_CLEAR_PER_SEC})` : '') + ' / ' +
       `最大占領率 ${me.maxPct.toFixed(1)}% / 最大囲い込み ${me.bestCapture}マス / 千両箱 ${me.items}個<br>` +
@@ -455,6 +557,7 @@
   }
 
   function beginMatch(g, meId) {
+    closeRanking(); $('submitBox').style.display = 'none';
     G.sfx.unlock();
     G.bgm.play('battle'); G.bgm.rate(1);
     game = G.game = g; // G.game はデバッグ・テスト用
